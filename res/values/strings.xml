@@ -7,5 +7,14 @@
     <string name="stop_name">stop name</string>
     <string name="action_cur_location">Find your location</string>
     <string name="action_exit">Exit</string>
-
+    <string name="loading_data">Loading data</string>
+    <string name="please_wait">Please wait...</string>
+    <string name="data_counter">1</string>
+    <string name="Mo">Mo</string>
+    <string name="Tu">Tu</string>
+    <string name="We">We</string>
+    <string name="Th">Th</string>
+    <string name="Fr">Fr</string>
+    <string name="Sa">Sa</string>
+    <string name="Su">Su</string>
 </resources>

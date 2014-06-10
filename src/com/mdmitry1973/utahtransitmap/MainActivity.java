@@ -20,6 +20,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.drawable.Drawable;
 import android.os.Environment;
 import android.util.Log;
 import android.view.GestureDetector;
@@ -32,13 +33,16 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.View.OnTouchListener;
 import android.view.Window;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.LinearLayout.LayoutParams;
+import android.widget.ListView;
 import android.widget.TextView;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -48,15 +52,26 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.StringReader;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetEncoder;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 import java.util.zip.*;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 
 import org.mapsforge.android.AndroidUtils;
 import org.mapsforge.android.maps.DebugSettings;
@@ -75,6 +90,7 @@ import org.mapsforge.android.maps.overlay.OverlayItem;
 import org.mapsforge.core.model.BoundingBox;
 import org.mapsforge.core.model.GeoPoint;
 import org.mapsforge.core.model.MapPosition;
+import org.mapsforge.core.util.IOUtils;
 import org.mapsforge.core.util.MercatorProjection;
 import org.mapsforge.map.reader.header.FileOpenResult;
 import org.mapsforge.map.reader.header.MapFileInfo;
@@ -95,8 +111,6 @@ public class MainActivity extends MapActivity  {
 	public final String kStopTimesFileName 		= "stop_times.txt";
 	public final String kTripsFileName 			= "trips.txt";
 	
-	//public final String kStopTripsFileName	= "stopTrips";
-	
 	public final int k_stop_param_stop_id 	= 0;
 	public final int k_stop_param_stop_code = 1;
 	public final int k_stop_param_stop_name = 2;
@@ -110,6 +124,7 @@ public class MainActivity extends MapActivity  {
 	
 	MapView mapView;
 	ListOverlay listOverlay;
+	Map<String, ArrayList<String>> mapServiceData = new HashMap<String, ArrayList<String>>();
 	
 	Bitmap bitmapBus;
 	Bitmap bitmapFlex;
@@ -125,8 +140,9 @@ public class MainActivity extends MapActivity  {
 	ListOverlay m_listOverlayCurrentPosition = null;
 	
 	public static final String PREFS_NAME = "UtahTransitMapPref";
-
-
+	
+	public static int currentDay = 0;
+	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -135,9 +151,15 @@ public class MainActivity extends MapActivity  {
 		
 		activity = this;
 		
-		final ProgressDialog  progress = ProgressDialog.show(this, "Loading data", "Please wait....", true);
+		final ProgressDialog  progress = ProgressDialog.show(this, 
+								getResources().getString(R.string.loading_data), 
+								getResources().getString(R.string.please_wait), true);
 		
 		progress.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+		
+	    Calendar rightNow = Calendar.getInstance();
+	    
+	    currentDay = rightNow.get(Calendar.DAY_OF_WEEK);
 
 		bitmapBus = BitmapFactory.decodeResource(getResources(), R.drawable.bus);
 		bitmapFlex = BitmapFactory.decodeResource(getResources(), R.drawable.flex_icon);
@@ -168,25 +190,51 @@ public class MainActivity extends MapActivity  {
 			  @Override
 			  public void run()
 			  {
-				  	if (!filesMaps.get(kMapFileName).exists())
+				  	//if (!filesMaps.get(kMapFileName).exists())
 			  		{
 			  			File externalStorageDirectory = Environment.getExternalStorageDirectory();
 			  			String packageName = getApplicationContext().getPackageName();
 			  			File storageLocation = new File(externalStorageDirectory, "/Android/obb/" + packageName);
 			  			File dataZipFile = new File(storageLocation, "main." + getVersion() + ".com.mdmitry1973.UtahTransitMap.obb");
+			  			File versionFile = new File(externalCacheDir.getAbsolutePath(), "version.xml");
 			  			
 			  			Log.v("MainActivity", "start unzip");
 			  			try{
+			  				boolean needUpdate = true;
+			  				
+		  					if (versionFile.exists())
+		  					{
+			  					try 
+			  					{
+				  					DocumentBuilderFactory xmlFactory = DocumentBuilderFactory.newInstance();
+									DocumentBuilder xmlBuilder = xmlFactory.newDocumentBuilder();
+									
+									Document documentCurrent = xmlBuilder.parse(versionFile);
+									Element elRootCurrent = documentCurrent.getDocumentElement();
+						    			
+									String counterCurrent = elRootCurrent.getAttribute("data_counter");
+									
+									if (counterCurrent.equalsIgnoreCase(getResources().getString(R.string.data_counter)) == true)
+									{
+										needUpdate = false;
+									}
+			  					} 
+			  					catch (Exception e) {
+									Log.v("MainActivity", "e=" + e);
+								} 
+		  					}
+		  					
+			  				if (needUpdate)
+			  				{
 			  					ZipInputStream zis = new ZipInputStream(new FileInputStream(dataZipFile));
 			  					
 			  					
 			  					try {
-			  					     ZipEntry ze;
+			  					     
+			  						ZipEntry ze;
 			  					     while ((ze = zis.getNextEntry()) != null) {
 			  					    	 
 			  					    	File currentDir = new File(externalCacheDir.getAbsolutePath());
-			  					    	 
-			  					    	 //Log.v("MainActivity", "getName=" + ze.getName());
 			  					    	 
 			  					    	 String zipName =  ze.getName();
 			  					    	 
@@ -219,8 +267,8 @@ public class MainActivity extends MapActivity  {
 			  					    	
 										File file = new File(currentDir, zipName);
 										 
-										if (!file.exists())
-										{
+										//if (!file.exists())
+										//{
 											FileOutputStream stream = new FileOutputStream(file);
 											byte[] buffer = new byte[1024];
 											int count;
@@ -230,7 +278,7 @@ public class MainActivity extends MapActivity  {
 											}	
 											
 											stream.close();
-										}
+										//}
 			  					     }
 			  					 } catch (IOException e) {
 			  						// TODO Auto-generated catch block
@@ -243,6 +291,27 @@ public class MainActivity extends MapActivity  {
 			  							e.printStackTrace();
 			  						}
 			  					 }
+			  					
+			  					try {
+			  						DocumentBuilderFactory xmlFactory = DocumentBuilderFactory.newInstance();
+			  						DocumentBuilder xmlBuilder = xmlFactory.newDocumentBuilder();
+			  						Document document = xmlBuilder.newDocument();
+			  						Element elRoot = document.createElement("version");
+			  						elRoot.setAttribute("data_counter", getResources().getString(R.string.data_counter));
+			  						document.appendChild(elRoot);
+			  						
+			  					// Use a Transformer for output
+									TransformerFactory tFactory = TransformerFactory.newInstance();
+									Transformer transformer = tFactory.newTransformer();
+									
+									DOMSource source = new DOMSource(document);
+									StreamResult result = new StreamResult(versionFile);
+									transformer.transform(source, result); 
+			  					}
+								catch (Exception e) {
+									Log.v("MainActivity", "e=" + e);
+								} 
+			  				}
 			  	
 			  			}
 			  			catch(FileNotFoundException e)
@@ -250,66 +319,40 @@ public class MainActivity extends MapActivity  {
 			  				e.printStackTrace();
 			  			}
 			  			Log.v("MainActivity", "stop unzip");
-			  			
-			  			//parse stop times
-				  		//Log.v("MainActivity", "start parse stop times");
-				  		/*
-				  		try 
-				  		{
-				  			//List<OverlayItem> overlayItems = new ArrayList<OverlayItem>();
-				  			String line = "";
-				  			int index = 0;
-				  			File externalCacheDir = getExternalCacheDir();
-				  			  
-				  			BufferedReader br = new BufferedReader(new FileReader(filesMaps.get(kStopTimesFileName)));
-				  			while ((line = br.readLine()) != null) {
-
-				  				if (index > 0)
-				  				{
-				  					String[] params =  line.split(",");
-				  			    
-				  					//trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign,pickup_type,drop_off_type,shape_dist_traveled
-				  					int stop_id = Integer.parseInt(params[3]);
-				  					
-				  					File file = new File(externalCacheDir, stop_id + ".txt");
-				  					
-				  					//file.delete();
-				  					
-				  					BufferedWriter bw = new BufferedWriter(new FileWriter(file));
-				  					//params.
-				  					//String param = "";//params.toString();
-				  					//Log.v("MainActivity", "param=" + param);
-				  					//for(int i = 0; i < params.length; i++)
-				  					//{
-				  					//	if (i == 3)
-				  					//	{
-				  					//		
-				  					//	}
-				  					//	else
-				  					//	{
-				  					//		param = param + params[1] + ",";
-				  					//	}
-				  					//}
-				  					
-				  					bw.write(params.toString());
-				  					bw.close();
-				  				}
-				  				
-				  				index++;
-				  			}
-				  			
-				  			br.close();
-				  			
-				  		} catch (FileNotFoundException e) {
-				  			// TODO Auto-generated catch block
-				  			e.printStackTrace();
-				  		} catch (IOException e) {
-				  			// TODO Auto-generated catch block
-				  			e.printStackTrace();
-				  		}
-				  		*/
-				  		Log.v("MainActivity", "end parse stop times");
 			  		}
+			  		
+			  		try{
+				  		BufferedReader serviceFileBuffer = new BufferedReader(new FileReader(filesMaps.get(kCalendarFileName)));
+						
+				  		serviceFileBuffer.readLine();
+						
+						while(serviceFileBuffer.ready())
+						{
+							//service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date
+							String serviceLine = serviceFileBuffer.readLine();
+							String[] serviceData = serviceLine.split(",");
+							
+							ArrayList<String> arrayList = new ArrayList<String>();
+							
+							arrayList.add(serviceData[1]);
+							arrayList.add(serviceData[2]);
+							arrayList.add(serviceData[3]);
+							arrayList.add(serviceData[4]);
+							arrayList.add(serviceData[5]);
+							arrayList.add(serviceData[6]);
+							arrayList.add(serviceData[7]);
+							arrayList.add(serviceData[8]);
+							arrayList.add(serviceData[9]);
+							
+							mapServiceData.put(serviceData[0], arrayList);
+						}
+						
+						serviceFileBuffer.close();
+			  		}
+					catch(Exception ex)
+					{
+						Log.v("MainActivity", "read CalendarFileName");
+					}
 			  		
 			  		FileOpenResult fileOpenResult = mapView.setMapFile(filesMaps.get(kMapFileName));
 			  		
@@ -369,6 +412,7 @@ public class MainActivity extends MapActivity  {
 			  			}
 			  			
 			  			br.close();
+			  			
 			  			
 			  			listOverlay = new ListOverlay();
 			  			listOverlay.getOverlayItems().addAll(overlayItems);
@@ -432,91 +476,7 @@ public class MainActivity extends MapActivity  {
 								if (dist[0] < 10)
 								{
 									String stop_id = item.getStopId();
-									File externalCacheDir = getExternalCacheDir();
-									File stopFile = new File(new File(externalCacheDir, "stops_data"), String.format("%s", stop_id));
-									
-									Log.v("MainActivity", "dis2=" + dist[0] +" geoPoint.latitude=" + geoPoint.latitude + " geoPoint.longitude=" + geoPoint.longitude + " StopName=" + item.getStopName());
-									Log.v("MainActivity", "fount stop name=" + item.getStopName());
-									
-									final Dialog dialog = new Dialog(activity);
-									
-									dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
-									dialog.setContentView(R.layout.stop_dialog);
-									
-									dialog.setCanceledOnTouchOutside(true);
-									
-									TextView nameItem = (TextView) dialog.findViewById(R.id.textViewStopName);
-									TextView descItem = (TextView) dialog.findViewById(R.id.textViewStopDesc);
-									TextView codeItem = (TextView) dialog.findViewById(R.id.textViewStopCode);
-									
-									LinearLayout layoutItem = (LinearLayout) dialog.findViewById(R.id.routes);
-									
-									if (nameItem != null)
-									{
-										nameItem.setText(item.getStopName());
-									}
-									
-									if (descItem != null)
-									{
-										descItem.setText(item.getStopDesc());
-									}
-									
-									if (codeItem != null)
-									{
-										codeItem.setText("" + item.getStopCode());
-									}
-									
-									if (layoutItem != null)
-									{
-										DocumentBuilderFactory xmlFactory = DocumentBuilderFactory.newInstance();
-										DocumentBuilder xmlBuilder = xmlFactory.newDocumentBuilder();
-										Document document = xmlBuilder.parse(stopFile);
-										Element elRoot = document.getDocumentElement();
-										
-										/*
-										  	<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-											<Stop stop_code="SOTNMALL" stop_desc="UNNAMED ST" stop_id="100" stop_lat="40.564691" stop_lon="-111.895258" stop_name="SOUTH TOWNE MALL">
-											  <routesItems>
-											    <Route roudeId="41266" route_long_name="DRAPER FLEX" route_short_name="F546">
-											      <Trip arrival_time="8:40:00" block_id="723945" departure_time="8:40:00" direction_id="1" service_id="4" shape_id="92527" stop_headsign="" stop_id="100" stop_sequence="2" trip_headsign="F546 DRAPER FLEX - TO DRAPER" trip_id="1515712"/>
-											    </Route>
-											  </routesItems>
-											</Stop>
-										 */
-										
-										NodeList roudeNodes = elRoot.getElementsByTagName("routesItems");
-										
-										if (roudeNodes.getLength() > 0)
-										{
-											Element routeNode = (Element)roudeNodes.item(0);
-											
-											NodeList roudeList = routeNode.getElementsByTagName("Route");
-											
-											for(int ii = 0; ii < roudeList.getLength(); ii++)
-											{
-												routeNode = (Element)roudeList.item(ii);
-												
-												String str_roudeId = routeNode.getAttribute("roudeId");
-												String str_route_long_name = routeNode.getAttribute("route_long_name");
-												String str_route_short_name = routeNode.getAttribute("route_short_name");
-												
-												Button routeButton = new Button(dialog.getContext());
-												
-												routeButton.setText(str_route_short_name);
-												
-												routeButton.setOnClickListener(new View.OnClickListener() {
-											        @Override
-											        public void onClick(View v) {
-											            //label.setText("Clicked button for " + name); 
-											        	Log.v("MainActivity", "Clicked button");
-											        }
-											    });
-												
-												LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
-												layoutItem.addView(routeButton, lp);
-											}
-										}
-									}
+									RoutesDialog dialog = new RoutesDialog(activity, stop_id);
 									
 									dialog.show();
 									
@@ -678,5 +638,14 @@ public class MainActivity extends MapActivity  {
 
         mlocManager.removeUpdates(mlocListener);
     }
+	
+	public Map<String, ArrayList<String>> getMpServiceData()
+	{
+		return mapServiceData;
+	}
 
+	public int getCurrentDay()
+	{
+		return currentDay;
+	}
 }
