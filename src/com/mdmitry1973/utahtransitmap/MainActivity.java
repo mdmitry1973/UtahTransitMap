@@ -5,6 +5,7 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -143,6 +144,37 @@ public class MainActivity extends MapActivity  {
 	
 	public static int currentDay = 0;
 	
+	ProgressDialog  progress = null;
+	
+	private Handler handler = new Handler() {
+        @Override
+            public void handleMessage(Message msg) {
+        	
+        	int y = msg.what;
+        	
+        	if (y == 111)
+        	{
+        		progress.dismiss();
+        		progress = new ProgressDialog(activity);
+        		progress.setTitle(getResources().getString(R.string.Unzipping_data));
+        		progress.setMessage(getResources().getString(R.string.please_wait_20));
+        		progress.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        		progress.setMax(7000);
+        		progress.show();
+        	}
+        	
+        	if (y == 222)
+        	{
+        		progress.dismiss();
+        		progress = new ProgressDialog(activity);
+        		progress.setTitle(getResources().getString(R.string.loading_data));
+        		progress.setMessage(getResources().getString(R.string.please_wait));
+        		progress.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+        		progress.show();
+        	}
+        }
+    };
+	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -151,11 +183,11 @@ public class MainActivity extends MapActivity  {
 		
 		activity = this;
 		
-		final ProgressDialog  progress = ProgressDialog.show(this, 
-								getResources().getString(R.string.loading_data), 
-								getResources().getString(R.string.please_wait), true);
-		
+		progress = new ProgressDialog(this);
+		progress.setTitle(getResources().getString(R.string.loading_data));
+  		progress.setMessage(getResources().getString(R.string.please_wait));
 		progress.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+		progress.show();
 		
 	    Calendar rightNow = Calendar.getInstance();
 	    
@@ -226,8 +258,11 @@ public class MainActivity extends MapActivity  {
 		  					
 			  				if (needUpdate)
 			  				{
-			  					ZipInputStream zis = new ZipInputStream(new FileInputStream(dataZipFile));
+			  					int nProgress = 0;
 			  					
+			  					handler.sendEmptyMessage(111);
+			  					
+			  					ZipInputStream zis = new ZipInputStream(new FileInputStream(dataZipFile));
 			  					
 			  					try {
 			  					     
@@ -266,19 +301,18 @@ public class MainActivity extends MapActivity  {
 			  					    	}
 			  					    	
 										File file = new File(currentDir, zipName);
-										 
-										//if (!file.exists())
-										//{
-											FileOutputStream stream = new FileOutputStream(file);
-											byte[] buffer = new byte[1024];
-											int count;
-											while ((count = zis.read(buffer, 0, 1024)) != -1) 
-											{
-												stream.write(buffer, 0, count);
-											}	
+										FileOutputStream stream = new FileOutputStream(file);
+										byte[] buffer = new byte[1024];
+										int count;
+										while ((count = zis.read(buffer, 0, 1024)) != -1) 
+										{
+											stream.write(buffer, 0, count);
+										}	
+										
+										stream.close();
 											
-											stream.close();
-										//}
+										nProgress++;
+										progress.setProgress(nProgress);	
 			  					     }
 			  					 } catch (IOException e) {
 			  						// TODO Auto-generated catch block
@@ -311,8 +345,9 @@ public class MainActivity extends MapActivity  {
 								catch (Exception e) {
 									Log.v("MainActivity", "e=" + e);
 								} 
+			  					
+			  					handler.sendEmptyMessage(222);
 			  				}
-			  	
 			  			}
 			  			catch(FileNotFoundException e)
 			  			{
@@ -495,7 +530,7 @@ public class MainActivity extends MapActivity  {
 			}
         });
 	}
-
+	
 	
 	@Override
     protected void onStop(){
@@ -579,14 +614,42 @@ public class MainActivity extends MapActivity  {
 			String currentLatitude = settings.getString("current_latitude", "");
 			String currentLongitude = settings.getString("current_longitude", "");
 			MapViewPosition currentPosition = mapView.getMapViewPosition();
-			GeoPoint geoPoint = new GeoPoint(Float.parseFloat(currentLatitude), 
-												Float.parseFloat(currentLongitude));
-		    	
+			GeoPoint geoPoint = null;
+			
+			if (!currentLatitude.isEmpty() &&
+				!currentLongitude.isEmpty())
+			{
+				geoPoint = new GeoPoint(Float.parseFloat(currentLatitude), Float.parseFloat(currentLongitude));
+			}
 			
 			currentPosition.setZoomLevel((byte) currentZoom);
-			currentPosition.setCenter(geoPoint);
 			
+			if (geoPoint != null)
+			{
+				currentPosition.setCenter(geoPoint);
+			}
 		}
+		
+		m_listOverlayCurrentPosition = new ListOverlay();
+		
+		//if (settings.contains("current_position_latitude") &&
+		//	settings.contains("current_position_longitude"))
+		//{
+			GeoPoint geoPoint = null;
+			String currentLatitude = settings.getString("current_position_latitude", "");
+			String currentLongitude = settings.getString("current_position_longitude", "");
+			
+			if (!currentLatitude.isEmpty() &&
+				!currentLongitude.isEmpty())
+			{
+				geoPoint = new GeoPoint(Float.parseFloat(currentLatitude), Float.parseFloat(currentLongitude));
+			}
+			
+			CurrentPositionItem item = new CurrentPositionItem(geoPoint, activity);
+			m_listOverlayCurrentPosition.getOverlayItems().add(item);
+		//}
+		
+		mapView.getOverlays().add(m_listOverlayCurrentPosition);
 
 		//MapScaleBar mapScaleBar = this.mapView.getMapScaleBar();
 		//mapScaleBar.setText(TextField.KILOMETER, getString(R.string.unit_symbol_kilometer));
@@ -618,19 +681,30 @@ public class MainActivity extends MapActivity  {
 		MapViewPosition currentPosition = mapView.getMapViewPosition();
 		GeoPoint geoPoint = new GeoPoint(loc.getLatitude(), loc.getLongitude());
 		
-		if (m_listOverlayCurrentPosition == null)
-		{
-			m_listOverlayCurrentPosition = new ListOverlay();
-			CurrentPositionItem item = new CurrentPositionItem(geoPoint, activity);
-			m_listOverlayCurrentPosition.getOverlayItems().add(item);
-			mapView.getOverlays().add(m_listOverlayCurrentPosition);
-		}
-		else
-		{
-			m_listOverlayCurrentPosition.getOverlayItems().clear();
-			CurrentPositionItem item = new CurrentPositionItem(geoPoint, activity);
-			m_listOverlayCurrentPosition.getOverlayItems().add(item);
-		}
+		//if (m_listOverlayCurrentPosition == null)
+		//{
+		//	m_listOverlayCurrentPosition = new ListOverlay();
+		///	CurrentPositionItem item = new CurrentPositionItem(geoPoint, activity);
+		//	m_listOverlayCurrentPosition.getOverlayItems().add(item);
+		//	mapView.getOverlays().add(m_listOverlayCurrentPosition);
+		//}
+		//else
+		//{
+			//m_listOverlayCurrentPosition.getOverlayItems().clear();
+			//CurrentPositionItem item = new CurrentPositionItem(geoPoint, activity);
+			//m_listOverlayCurrentPosition.getOverlayItems().add(item);
+		//}
+		
+		CurrentPositionItem item = (CurrentPositionItem)m_listOverlayCurrentPosition.getOverlayItems().get(0);
+		
+		item.setGeoPoint(geoPoint);
+		
+		SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
+	    SharedPreferences.Editor editor = settings.edit();
+	    editor.putString("current_position_latitude", String.valueOf(geoPoint.latitude));
+	    editor.putString("current_position_longitude", String.valueOf(geoPoint.longitude));
+	       
+	    editor.commit();
 		
 		currentPosition.setCenter(geoPoint);
 		

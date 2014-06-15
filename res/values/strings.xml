@@ -9,7 +9,7 @@
     <string name="action_exit">Exit</string>
     <string name="loading_data">Loading data</string>
     <string name="please_wait">Please wait...</string>
-    <string name="data_counter">1</string>
+    <string name="data_counter">5</string>
     <string name="Mo">Mo</string>
     <string name="Tu">Tu</string>
     <string name="We">We</string>
@@ -17,4 +17,6 @@
     <string name="Fr">Fr</string>
     <string name="Sa">Sa</string>
     <string name="Su">Su</string>
+    <string name="Unzipping_data">Unzipping data</string>
+    <string name="please_wait_20">Please wait, it can take about 20 minutes</string>
 </resources>

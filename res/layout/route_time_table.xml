@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical" 
+     android:id="@+id/rootLinear">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" >
+
+        <Button
+            android:id="@+id/toggleButtonMo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:drawableBottom="@drawable/off"
+            android:text="@string/Mo" />
+
+        <Button
+            android:id="@+id/toggleButtonTu"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:drawableBottom="@drawable/off"
+            android:text="@string/Tu" />
+
+        <Button
+            android:id="@+id/toggleButtonWe"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:drawableBottom="@drawable/off"
+            android:text="@string/We" />
+
+        <Button
+            android:id="@+id/toggleButtonTh"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:drawableBottom="@drawable/off"
+            android:text="@string/Th"/>
+
+        <Button
+            android:id="@+id/toggleButtonFr"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:drawableBottom="@drawable/off"
+            android:text="@string/Fr" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" >
+
+        <Button
+            android:id="@+id/toggleButtonSa"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:drawableBottom="@drawable/off"
+            android:text="@string/Sa" />
+
+        <Button
+            android:id="@+id/toggleButtonSu"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:drawableBottom="@drawable/off"
+            android:text="@string/Su" />
+
+    </LinearLayout>
+
+    <ListView
+        android:id="@+id/listViewTrips"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" >
+    </ListView>
+
+</LinearLayout>
