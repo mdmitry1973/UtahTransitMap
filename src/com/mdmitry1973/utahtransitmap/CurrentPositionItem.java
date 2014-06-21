@@ -35,7 +35,7 @@ public class CurrentPositionItem   implements OverlayItem {
 		
 		paintLineRuler = new Paint();
 		paintLineRuler.setColor(Color.BLACK);
-		paintLineRuler.setStrokeWidth(5);
+		paintLineRuler.setStrokeWidth(3);
 		paintLineRuler.setStyle(Paint.Style.STROKE);
 		paintLineRuler.setStrokeJoin(Paint.Join.ROUND);
 		

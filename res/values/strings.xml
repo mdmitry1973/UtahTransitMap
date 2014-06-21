@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
     <string name="app_name">UtahTransitMap</string>
     <string name="action_settings">Settings</string>
     <string name="hello_world">Hello world!</string>
@@ -19,4 +18,10 @@
     <string name="Su">Su</string>
     <string name="Unzipping_data">Unzipping data</string>
     <string name="please_wait_20">Please wait, it can take about 20 minutes</string>
+    <string name="show_route">Show route trip</string>
+    <string name="timeString">Time</string>
+    <string name="settings_bg_color_confirm">Tap here to confirm</string>
+    <string name="settings_default_color_confirm">Default color</string>
+    <string name="settings_bg_color_dialog">Pick a color</string>
+    <string name="tap_on_station">Tap on a stop for see routes and time table.</string>
 </resources>

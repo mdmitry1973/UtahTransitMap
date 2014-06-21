@@ -12,6 +12,7 @@ import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.SharedPreferences;
 //import android.content.DialogInterface;
 //import android.content.DialogInterface.OnClickListener;
@@ -101,7 +102,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-public class MainActivity extends MapActivity  {
+public class MainActivity extends MapActivity implements ColorPickerDialog.OnColorChangedListener  {
 	
 	public final String kMapFileName			= "utah.map";
 	public final String kStopsFileName 			= "stops.txt";
@@ -123,6 +124,9 @@ public class MainActivity extends MapActivity  {
 	public final int k_stop_param_location_type 	= 8;
 	public final int k_stop_param_parent_station 	= 9;
 	
+	public final String DROIDS_COLOR_KEY = "DROIDS_COLOR_KEY";
+	public final int DROIDS_COLOR_DEFAULT = Color.BLUE;
+	
 	MapView mapView;
 	ListOverlay listOverlay;
 	Map<String, ArrayList<String>> mapServiceData = new HashMap<String, ArrayList<String>>();
@@ -140,11 +144,19 @@ public class MainActivity extends MapActivity  {
 	MyLocationListener mlocListener = null;
 	ListOverlay m_listOverlayCurrentPosition = null;
 	
+	ListOverlay m_listOverlayTrips = new ListOverlay();
+	
 	public static final String PREFS_NAME = "UtahTransitMapPref";
 	
 	public static int currentDay = 0;
 	
 	ProgressDialog  progress = null;
+	
+	public final int k_event_unzip 			= 111;
+	public final int k_event_loading_data 	= 222;
+	
+	public static String sel_tripId = ""; 
+	public static String sel_roudeId = ""; 
 	
 	private Handler handler = new Handler() {
         @Override
@@ -152,7 +164,7 @@ public class MainActivity extends MapActivity  {
         	
         	int y = msg.what;
         	
-        	if (y == 111)
+        	if (y == k_event_unzip)
         	{
         		progress.dismiss();
         		progress = new ProgressDialog(activity);
@@ -162,8 +174,8 @@ public class MainActivity extends MapActivity  {
         		progress.setMax(7000);
         		progress.show();
         	}
-        	
-        	if (y == 222)
+        	else
+        	if (y == k_event_loading_data)
         	{
         		progress.dismiss();
         		progress = new ProgressDialog(activity);
@@ -171,6 +183,10 @@ public class MainActivity extends MapActivity  {
         		progress.setMessage(getResources().getString(R.string.please_wait));
         		progress.setProgressStyle(ProgressDialog.STYLE_SPINNER);
         		progress.show();
+        	}
+        	else
+        	{
+        		Log.v("MainActivity", "unknown event = " + y);
         	}
         }
     };
@@ -260,7 +276,7 @@ public class MainActivity extends MapActivity  {
 			  				{
 			  					int nProgress = 0;
 			  					
-			  					handler.sendEmptyMessage(111);
+			  					handler.sendEmptyMessage(k_event_unzip);
 			  					
 			  					ZipInputStream zis = new ZipInputStream(new FileInputStream(dataZipFile));
 			  					
@@ -346,7 +362,7 @@ public class MainActivity extends MapActivity  {
 									Log.v("MainActivity", "e=" + e);
 								} 
 			  					
-			  					handler.sendEmptyMessage(222);
+			  					handler.sendEmptyMessage(k_event_loading_data);
 			  				}
 			  			}
 			  			catch(FileNotFoundException e)
@@ -448,10 +464,11 @@ public class MainActivity extends MapActivity  {
 			  			
 			  			br.close();
 			  			
-			  			
 			  			listOverlay = new ListOverlay();
 			  			listOverlay.getOverlayItems().addAll(overlayItems);
 			  			mapView.getOverlays().add(listOverlay);
+			  			
+			  			mapView.getOverlays().add(m_listOverlayTrips);
 			  			
 			  		} catch (FileNotFoundException e) {
 			  			// TODO Auto-generated catch block
@@ -463,13 +480,42 @@ public class MainActivity extends MapActivity  {
 			  		
 			  		Log.v("MainActivity", "end add stops");
 			  		
+			  		SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
+			  		
+			  		if (settings.contains("tripsId"))
+			  		{
+				  		String tripsId = settings.getString("tripsId", "");
+				  		String roudesId = settings.getString("roudesId", "");
+				  		String colorsId = settings.getString("colorsId", "");
+				  		
+				  		String[] arrTripsId = tripsId.split(",");
+				  		String[] arrRoutesId = roudesId.split(",");
+				  		String[] arrColorsId = colorsId.split(",");
+				  		
+				  		for(int t = 0; t < arrTripsId.length; t++)
+				  		{
+				  			sel_tripId = arrTripsId[t]; 
+				  			sel_roudeId = arrRoutesId[t]; 
+				  			
+				  			colorChanged("", Integer.parseInt(arrColorsId[t]));
+				  		}
+			  		}
+			  		
 			  		mapView.redraw();
+			  		
+			  		
 
 			    runOnUiThread(new Runnable() {
 			      @Override
 			      public void run()
 			      {
 			    	  progress.dismiss();
+			    	  
+			    	  AlertDialog.Builder builder = new AlertDialog.Builder(activity);
+			    	  builder.setMessage(R.string.tap_on_station).setTitle(R.string.app_name);
+			    	  AlertDialog dialog = builder.create();
+			    	
+			    	  dialog.show();
 			      }
 			    });
 			  }
@@ -536,15 +582,32 @@ public class MainActivity extends MapActivity  {
     protected void onStop(){
        super.onStop();
        
-       MapViewPosition currentPosition = mapView.getMapViewPosition();
-
-       SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
-       SharedPreferences.Editor editor = settings.edit();
-       editor.putInt("current_ZoomLevel", currentPosition.getZoomLevel());
-       editor.putString("current_latitude", String.valueOf(currentPosition.getCenter().latitude));
-       editor.putString("current_longitude", String.valueOf(currentPosition.getCenter().longitude));
-       
-       editor.commit();
+	   MapViewPosition currentPosition = mapView.getMapViewPosition();
+	
+	   SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
+	   SharedPreferences.Editor editor = settings.edit();
+	   editor.putInt("current_ZoomLevel", currentPosition.getZoomLevel());
+	   editor.putString("current_latitude", String.valueOf(currentPosition.getCenter().latitude));
+	   editor.putString("current_longitude", String.valueOf(currentPosition.getCenter().longitude));
+	   
+	   String tripsId = "";
+	   String roudesId = "";
+	   String colorsId = "";
+	   
+	   List<OverlayItem> list = m_listOverlayTrips.getOverlayItems();
+		
+	   for(int ii = 0; ii < list.size(); ii++)
+	   {
+		   tripsId = tripsId + ((TripOverlayItem)list.get(ii)).tripID + ",";
+		   roudesId = roudesId + ((TripOverlayItem)list.get(ii)).routeID + ",";
+		   colorsId = colorsId + ((TripOverlayItem)list.get(ii)).color + ",";
+	   }
+		
+	   editor.putString("tripsId", tripsId);
+	   editor.putString("roudesId", roudesId);
+	   editor.putString("colorsId", colorsId);
+	   
+	   editor.commit();
     }
 
 	
@@ -676,24 +739,122 @@ public class MainActivity extends MapActivity  {
 		return bitmapCurrentPosition;
 	}
 	
+	public void colorChanged(String key, int color)
+	{
+		SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
+	    SharedPreferences.Editor editor = settings.edit();
+	    editor.putInt(key, color);
+		
+		try{
+			ArrayList<GeoPoint> geoPoints = new ArrayList<GeoPoint>();
+			BufferedReader serviceFileBuffer = new BufferedReader(new FileReader(filesMaps.get(kStopTimesFileName)));
+			
+	  		serviceFileBuffer.readLine();
+	  		
+	  		Boolean foundTrip = false;
+			
+			while(serviceFileBuffer.ready())
+			{
+				//trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign,pickup_type,drop_off_type,shape_dist_traveled
+				String serviceLine = serviceFileBuffer.readLine();
+				String[] serviceData = serviceLine.split(",");
+				
+				if (serviceData[0].compareTo(sel_tripId) == 0)
+				{
+					foundTrip = true;
+					
+					String stop_id = serviceData[3];
+					
+					/*
+					<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+					<Stop stop_code="174068" stop_desc="E 9400 S" stop_id="13697" stop_lat="40.580351" stop_lon="-111.829475"
+					 */
+					
+					File externalCacheDir = getExternalCacheDir();
+					File stopFile = new File(new File(externalCacheDir, "stops_data"), String.format("%s", stop_id));
+					
+					try {
+						DocumentBuilderFactory xmlFactory = DocumentBuilderFactory.newInstance();
+						DocumentBuilder xmlBuilder;
+						xmlBuilder = xmlFactory.newDocumentBuilder();
+						Document document;
+						document = xmlBuilder.parse(stopFile);
+						Element elRoot = document.getDocumentElement();
+						
+						String stop_lat = elRoot.getAttribute("stop_lat");
+						String stop_lon = elRoot.getAttribute("stop_lon");
+						
+						GeoPoint point = new GeoPoint(Double.parseDouble(stop_lat), Double.parseDouble(stop_lon));
+						
+						geoPoints.add(point);
+						
+					}
+					catch(Exception ex)
+					{
+						Log.v("MainActivity", "read CalendarFileName");
+					}
+				}
+				else
+				{
+					if (foundTrip == true)
+					{
+						break;
+					}
+				}
+			}
+			
+			serviceFileBuffer.close();
+			
+			TripOverlayItem item = new TripOverlayItem(sel_tripId,  sel_roudeId, geoPoints, color, this);
+			
+			List<OverlayItem> list = m_listOverlayTrips.getOverlayItems();
+			
+			for(int ii = 0; ii < list.size(); ii++)
+			{
+				if (((TripOverlayItem)list.get(ii)).routeID.compareTo(sel_roudeId) == 0)
+				{
+					list.remove(ii);
+					break;
+				}
+			}
+			
+			m_listOverlayTrips.getOverlayItems().add(item);
+  		}
+		catch(Exception ex)
+		{
+			Log.v("MainActivity", "read CalendarFileName");
+		}
+		
+		mapView.redraw();
+	}
+	
+	public void setTripOverlay(String tripId, String roudeId)
+	{
+		sel_tripId = tripId; 
+		sel_roudeId = roudeId; 
+		
+		SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
+	   
+		ColorPickerDialog colorDiaolg = new ColorPickerDialog(this, this, DROIDS_COLOR_KEY, settings.getInt(DROIDS_COLOR_KEY, DROIDS_COLOR_DEFAULT), DROIDS_COLOR_DEFAULT);
+		
+		colorDiaolg.show();
+	}
+	
+	public void getTripOverlay(ArrayList<String> tripsId, ArrayList<String> roudesId)
+	{
+		List<OverlayItem> list = m_listOverlayTrips.getOverlayItems();
+		
+		for(int ii = 0; ii < list.size(); ii++)
+		{
+			tripsId.add(((TripOverlayItem)list.get(ii)).tripID);
+			roudesId.add(((TripOverlayItem)list.get(ii)).routeID);
+		}
+	}
+	
 	public void onLocationChanged(Location loc)
     {
 		MapViewPosition currentPosition = mapView.getMapViewPosition();
 		GeoPoint geoPoint = new GeoPoint(loc.getLatitude(), loc.getLongitude());
-		
-		//if (m_listOverlayCurrentPosition == null)
-		//{
-		//	m_listOverlayCurrentPosition = new ListOverlay();
-		///	CurrentPositionItem item = new CurrentPositionItem(geoPoint, activity);
-		//	m_listOverlayCurrentPosition.getOverlayItems().add(item);
-		//	mapView.getOverlays().add(m_listOverlayCurrentPosition);
-		//}
-		//else
-		//{
-			//m_listOverlayCurrentPosition.getOverlayItems().clear();
-			//CurrentPositionItem item = new CurrentPositionItem(geoPoint, activity);
-			//m_listOverlayCurrentPosition.getOverlayItems().add(item);
-		//}
 		
 		CurrentPositionItem item = (CurrentPositionItem)m_listOverlayCurrentPosition.getOverlayItems().get(0);
 		

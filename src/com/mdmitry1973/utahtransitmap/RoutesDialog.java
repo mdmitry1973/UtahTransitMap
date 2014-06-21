@@ -2,6 +2,7 @@ package com.mdmitry1973.utahtransitmap;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.Serializable;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -27,10 +28,13 @@ import org.xml.sax.SAXException;
 
 import android.app.Dialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.graphics.drawable.Drawable;
 import android.text.format.Time;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -41,6 +45,28 @@ import android.widget.LinearLayout.LayoutParams;
 
 public class RoutesDialog extends Dialog {
 	
+	public class TimeTableItem implements Serializable {
+		private String strTime = "";
+		private Boolean bChecked = false;
+		private String strTripId = "";
+
+		public TimeTableItem(String strTime, Boolean bChecked, String strTripId) {
+			this.strTime = strTime;
+			this.bChecked = bChecked;
+			this.strTripId = strTripId;
+		}
+	
+		public String getTime() {
+			
+			return strTime;
+		}
+		
+		public String getTripId() {
+			
+			return strTripId;
+		}
+	}
+	
 	private	MainActivity m_activity = null;
 	private	String m_stop_id = null;
 	private Map<String, ArrayList<String>> mapServiceData = null;
@@ -48,49 +74,90 @@ public class RoutesDialog extends Dialog {
 	private File stopFile = null;
 	
 	private Map<Button, String> mapButtonDayTime = new HashMap<Button, String>();
-	private Map<String, ArrayList<String>> mapDayTime = new HashMap<String, ArrayList<String>>();
+	private Map<String, ArrayList<TimeTableItem>> mapDayTime = new HashMap<String, ArrayList<TimeTableItem>>();
 	private ArrayList<Button> ButtonList = new ArrayList<Button>();
 	private ListView listView = null;
 	
+	String route_id = "";
 	
-	 private class StableArrayAdapter extends ArrayAdapter<String> {
+	public class TimeTableListAdapter extends ArrayAdapter<TimeTableItem> {
 
-		    HashMap<String, Integer> mIdMap = new HashMap<String, Integer>();
+		private List<TimeTableItem> items;
+		private ArrayList<AtomPaymentHolder> holders = new ArrayList<AtomPaymentHolder>();
+		private int layoutResourceId;
+		private Context context;
+		
+		public class AtomPaymentHolder {
+			TimeTableItem atomPayment;
+			TextView strTime;
+			Button checkedButton;
+		}
 
-		    public StableArrayAdapter(Context context, int textViewResourceId,
-		        List<String> objects) {
-		      super(context, textViewResourceId, objects);
-		      for (int i = 0; i < objects.size(); ++i) {
-		        mIdMap.put(objects.get(i), i);
-		      }
-		    }
-		    
-		    void resetArray(List<String> objects)
+		public TimeTableListAdapter(Context context, int layoutResourceId, List<TimeTableItem> items) {
+			super(context, layoutResourceId, items);
+			this.layoutResourceId = layoutResourceId;
+			this.context = context;
+			this.items = items;
+		}
+		
+		 void resetArray(List<TimeTableItem> objects)
 		    {
+			 	holders.clear();
 		    	clear();
-		    	mIdMap.clear();
+		    	items.clear();
 		    	
 		    	for (int i = 0; i < objects.size(); ++i) 
 		    	{
-					mIdMap.put(objects.get(i), i);
-					add(objects.get(i));
+		    		items.add(objects.get(i));
 				}
 		    }
 
-		    @Override
-		    public long getItemId(int position) {
-		      String item = getItem(position);
-		      return mIdMap.get(item);
-		    }
+		@Override
+		public View getView(int position, View convertView, ViewGroup parent) {
+			AtomPaymentHolder holder;
+            if(convertView == null){
+                LayoutInflater inflater = LayoutInflater.from(context);
+                convertView = inflater.inflate(R.layout.time_table_item, parent, false);
+                holder = new AtomPaymentHolder();
 
-		    @Override
-		    public boolean hasStableIds() {
-		      return true;
-		    }
+                holder.strTime = (TextView)convertView.findViewById(R.id.textViewTimeItem);
+                holder.checkedButton = (Button)convertView.findViewById(R.id.buttonShowRoute);
 
-		  }
-	 
-	StableArrayAdapter adapter = null;
+                convertView.setTag(holder);
+                
+                holders.add(holder);
+            }else{
+                holder = (AtomPaymentHolder) convertView.getTag();
+            }
+
+            holder.strTime.setText(getItem(position).getTime());
+            holder.checkedButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) 
+                {
+                	Log.v("MainActivity", "setOnClickListener= " + v.getTag());
+                	
+                	if (m_activity != null)
+                	{
+                		m_activity.setTripOverlay((String) v.getTag(), route_id);
+                		
+                		for(int i = 0; i < holders.size(); i++)
+            			{
+            				AtomPaymentHolder h = holders.get(i);
+            			
+            				h.checkedButton.setCompoundDrawablesWithIntrinsicBounds(null,null,null,  m_activity.getResources().getDrawable( R.drawable.off));
+            			}
+                		
+                		((Button)v).setCompoundDrawablesWithIntrinsicBounds(null,null,null,  m_activity.getResources().getDrawable( R.drawable.on));
+                	}
+                }
+            });
+            holder.checkedButton.setTag( getItem(position).getTripId());
+            return convertView;
+		}
+	}
+	
+	TimeTableListAdapter adapter = null;
 
 	
 	public RoutesDialog(Context context, String stop_id) {
@@ -169,7 +236,7 @@ public class RoutesDialog extends Dialog {
 				          
 				        	Log.v("MainActivity", "Clicked button");
 				        	
-				        	String route_id = mapStopButtom.get(v);
+				        	route_id = mapStopButtom.get(v);
 				        	
 				        	final Dialog dialog = new Dialog(m_activity);
 							
@@ -221,54 +288,56 @@ public class RoutesDialog extends Dialog {
 											{
 												NodeList trips = routeNode.getChildNodes();
 												
-												ArrayList<String> tagMoData = new ArrayList<String>();
-												ArrayList<String> tagTuData = new ArrayList<String>();
-												ArrayList<String> tagWeData = new ArrayList<String>();
-												ArrayList<String> tagThData = new ArrayList<String>();
-												ArrayList<String> tagFrData = new ArrayList<String>();
-												ArrayList<String> tagSaData = new ArrayList<String>();
-												ArrayList<String> tagSuData = new ArrayList<String>();
+												ArrayList<TimeTableItem> tagMoData = new ArrayList<TimeTableItem>();
+												ArrayList<TimeTableItem> tagTuData = new ArrayList<TimeTableItem>();
+												ArrayList<TimeTableItem> tagWeData = new ArrayList<TimeTableItem>();
+												ArrayList<TimeTableItem> tagThData = new ArrayList<TimeTableItem>();
+												ArrayList<TimeTableItem> tagFrData = new ArrayList<TimeTableItem>();
+												ArrayList<TimeTableItem> tagSaData = new ArrayList<TimeTableItem>();
+												ArrayList<TimeTableItem> tagSuData = new ArrayList<TimeTableItem>();
 												
 												for(int m = 0; m < trips.getLength(); m++)
 												{
 													Element tripEl = (Element)trips.item(m);
 													String arrival_time = tripEl.getAttribute("arrival_time");
 													String service_id = tripEl.getAttribute("service_id");
+													String trip_id = tripEl.getAttribute("trip_id");
 													ArrayList<String> arrayList = mapServiceData.get(service_id);
+													TimeTableItem itemTime = new TimeTableItem(arrival_time, false, trip_id);
 													
 													if (arrayList.get(0).compareTo("1") == 0)
 													{
-														tagMoData.add(arrival_time);
+														tagMoData.add(itemTime);
 													}
 													
 													if (arrayList.get(1).compareTo("1") == 0)
 													{
-														tagTuData.add(arrival_time);
+														tagTuData.add(itemTime);
 													}
 													
 													if (arrayList.get(2).compareTo("1") == 0)
 													{
-														tagWeData.add(arrival_time);
+														tagWeData.add(itemTime);
 													}
 													
 													if (arrayList.get(3).compareTo("1") == 0)
 													{
-														tagThData.add(arrival_time);
+														tagThData.add(itemTime);
 													}
 													
 													if (arrayList.get(4).compareTo("1") == 0)
 													{
-														tagFrData.add(arrival_time);
+														tagFrData.add(itemTime);
 													}
 													
 													if (arrayList.get(5).compareTo("1") == 0)
 													{
-														tagSaData.add(arrival_time);
+														tagSaData.add(itemTime);
 													}
 													
 													if (arrayList.get(6).compareTo("1") == 0)
 													{
-														tagSuData.add(arrival_time);
+														tagSuData.add(itemTime);
 													}
 												}
 												
@@ -281,9 +350,9 @@ public class RoutesDialog extends Dialog {
 												mapDayTime.put("Sa", tagSaData);
 												mapDayTime.put("Su", tagSuData);
 												
-												Collection<ArrayList<String>> col = mapDayTime.values();
-												Iterator<ArrayList<String>> it = col.iterator();
-												ArrayList<String> tagXXData = null;
+												Collection<ArrayList<TimeTableItem>> col = mapDayTime.values();
+												Iterator<ArrayList<TimeTableItem>> it = col.iterator();
+												ArrayList<TimeTableItem> tagXXData = null;
 												
 												do
 												{
@@ -291,14 +360,14 @@ public class RoutesDialog extends Dialog {
 													
 													if (tagXXData != null)
 													{
-														Collections.sort(tagXXData, new Comparator<String> () 
+														Collections.sort(tagXXData, new Comparator<TimeTableItem> () 
 																{
 																	@Override
-																	public int compare(String lhs,
-																			String rhs) 
+																	public int compare(TimeTableItem lhs,
+																			TimeTableItem rhs) 
 																	{
-																		String[] lhsArr = lhs.split(":");
-																		String[] rhsArr = rhs.split(":");
+																		String[] lhsArr = lhs.strTime.split(":");
+																		String[] rhsArr = rhs.strTime.split(":");
 																		
 																		Time a = new Time();
 																		Time b = new Time();
@@ -362,7 +431,7 @@ public class RoutesDialog extends Dialog {
 							        	Log.v("MainActivity", "Clicked ButtonMo");
 							        	
 							        	String dayName = mapButtonDayTime.get(v);
-							        	ArrayList<String> dayTime = mapDayTime.get(dayName);
+							        	ArrayList<TimeTableItem> dayTime = mapDayTime.get(dayName);
 							        	
 							        	for(int k = 0; k < ButtonList.size(); k++)
 							        	{
@@ -383,109 +452,55 @@ public class RoutesDialog extends Dialog {
 								});
 							}
 							
-							/*
-							ButtonMo.setOnClickListener(new View.OnClickListener() {
-						        @Override
-						        public void onClick(View v) {
-						           
-						        	Log.v("MainActivity", "Clicked ButtonMo");
-						        	
-						        	String dayName = mapButtonDayTime.get(v);
-						        	ArrayList<String> dayTime = mapDayTime.get(dayName);
-						        	
-						        	for(int k = 0; k < ButtonList.size(); k++)
-						        	{
-						        		if (v.equals(ButtonList.get(k)) == true)
-						        		{
-						        			ButtonList.get(k).setCompoundDrawablesWithIntrinsicBounds(null,null,null,  m_activity.getResources().getDrawable( R.drawable.on));						
-						        		}
-						        		else
-						        		{
-						        			ButtonList.get(k).setCompoundDrawablesWithIntrinsicBounds(null,null,null,  m_activity.getResources().getDrawable( R.drawable.off));						
-						        		}
-						        	}
-						        	
-						        	adapter.resetArray(dayTime);
-						        	adapter.notifyDataSetChanged();
-						        	listView.invalidate();
-						        }
-							});
-							
-							ButtonSu.setOnClickListener(new View.OnClickListener() {
-						        @Override
-						        public void onClick(View v) {
-						           
-						        	Log.v("MainActivity", "Clicked ButtonSu");
-						        	
-						        	String dayName = mapButtonDayTime.get(v);
-						        	ArrayList<String> dayTime = mapDayTime.get(dayName);
-						        	
-						        	for(int k = 0; k < ButtonList.size(); k++)
-						        	{
-						        		if (v.equals(ButtonList.get(k)) == true)
-						        		{
-						        			ButtonList.get(k).setCompoundDrawablesWithIntrinsicBounds(null,null,null,  m_activity.getResources().getDrawable( R.drawable.on));						
-						        		}
-						        		else
-						        		{
-						        			ButtonList.get(k).setCompoundDrawablesWithIntrinsicBounds(null,null,null,  m_activity.getResources().getDrawable( R.drawable.off));						
-						        		}
-						        	}
-						        	
-						        	adapter.resetArray(dayTime);
-						        	adapter.notifyDataSetChanged();
-						        	listView.invalidate();
-						        }
-							});
-							*/
-							
-							ArrayList<String> listTime = null;
+							//ArrayList<String> listTime = null;
+							ArrayList<TimeTableItem> listTime = null;
 							
 							if (currentDay == Calendar.MONDAY)
 							{
-								listTime = new ArrayList<String>(mapDayTime.get("Mo"));
+								listTime = new ArrayList<TimeTableItem>(mapDayTime.get("Mo"));
 								ButtonMo.setCompoundDrawablesWithIntrinsicBounds(null,null,null,  m_activity.getResources().getDrawable( R.drawable.on));
 							}
 							
 							if (currentDay == Calendar.TUESDAY)
 							{
-								listTime = new ArrayList<String>(mapDayTime.get("Tu"));
+								listTime = new ArrayList<TimeTableItem>(mapDayTime.get("Tu"));
 								ButtonTu.setCompoundDrawablesWithIntrinsicBounds(null,null,null,  m_activity.getResources().getDrawable( R.drawable.on));
 							}
 							
 							if (currentDay == Calendar.WEDNESDAY)
 							{
-								listTime = new ArrayList<String>(mapDayTime.get("We"));
+								listTime = new ArrayList<TimeTableItem>(mapDayTime.get("We"));
 								ButtonWe.setCompoundDrawablesWithIntrinsicBounds(null,null,null,  m_activity.getResources().getDrawable( R.drawable.on));
 							}
 							
 							if (currentDay == Calendar.THURSDAY)
 							{
-								listTime = new ArrayList<String>(mapDayTime.get("Th"));
+								listTime = new ArrayList<TimeTableItem>(mapDayTime.get("Th"));
 								ButtonTh.setCompoundDrawablesWithIntrinsicBounds(null,null,null,  m_activity.getResources().getDrawable( R.drawable.on));
 							}
 							
 							if (currentDay == Calendar.FRIDAY)
 							{
-								listTime = new ArrayList<String>(mapDayTime.get("Fr"));
+								listTime = new ArrayList<TimeTableItem>(mapDayTime.get("Fr"));
 								ButtonFr.setCompoundDrawablesWithIntrinsicBounds(null,null,null,  m_activity.getResources().getDrawable( R.drawable.on));
 							}
 							
 							if (currentDay == Calendar.SATURDAY)
 							{
-								listTime = new ArrayList<String>(mapDayTime.get("Sa"));
+								listTime = new ArrayList<TimeTableItem>(mapDayTime.get("Sa"));
 								ButtonSa.setCompoundDrawablesWithIntrinsicBounds(null,null,null,  m_activity.getResources().getDrawable( R.drawable.on));
 							}
 							
 							if (currentDay == Calendar.SUNDAY)
 							{
-								listTime = new ArrayList<String>(mapDayTime.get("Su"));
+								listTime = new ArrayList<TimeTableItem>(mapDayTime.get("Su"));
 								ButtonSu.setCompoundDrawablesWithIntrinsicBounds(null,null,null,  m_activity.getResources().getDrawable( R.drawable.on));
 							}
 							
 							if (listTime != null)
 							{
-								adapter = new StableArrayAdapter(m_activity, android.R.layout.simple_list_item_1, listTime);
+								//adapter = new StableArrayAdapter(m_activity, android.R.layout.simple_list_item_1, listTime);
+								adapter = new TimeTableListAdapter(m_activity, R.layout.time_table_item, listTime);
 								listView.setAdapter(adapter);
 							}
 						    
