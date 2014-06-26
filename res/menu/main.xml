@@ -14,6 +14,20 @@
         android:title="@string/action_cur_location">
     </item>
     
+     <item
+        android:id="@+id/action_check_data"
+        android:orderInCategory="100"
+        android:showAsAction="never"
+        android:title="@string/check_dat">
+    </item>
+    
+     <item
+        android:id="@+id/action_about"
+        android:orderInCategory="100"
+        android:showAsAction="never"
+        android:title="@string/about">
+    </item>
+    
     <item
         android:id="@+id/action_exit"
         android:orderInCategory="100"

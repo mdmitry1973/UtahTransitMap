@@ -60,111 +60,231 @@ public class CurrentPositionItem   implements OverlayItem {
 		
 		try
 		{
-			float[] resultPt=new float[5]; 
-			
-			double LatitudeY1 = MercatorProjection.pixelYToLatitude(pixelBottom + canvasPosition.y, zoomLevel);
-			double LatitudeY2 = MercatorProjection.pixelYToLatitude(pixelBottom - 1 + canvasPosition.y, zoomLevel);
-				
-			Location.distanceBetween (LatitudeY1, boundingBox.maxLongitude, LatitudeY2, boundingBox.maxLongitude, resultPt);
-			
+			if (activity.getCurrentMetric().compareTo("2") == 0)
 			{
-				float disM = pixelTop*resultPt[0];//result[0];
-				double r =Math.log10(disM);
-				double p =Math.pow(10, (double)(int)r);
-				double closeP = p;
-				int nR = 1;
-				double pixMin = 0;
+				float[] resultPt=new float[5]; 
 				
-				for(; closeP + p < disM;)
+				double LatitudeY1 = MercatorProjection.pixelYToLatitude(pixelBottom + canvasPosition.y, zoomLevel);
+				double LatitudeY2 = MercatorProjection.pixelYToLatitude(pixelBottom - 1 + canvasPosition.y, zoomLevel);
+					
+				Location.distanceBetween (LatitudeY1, boundingBox.maxLongitude, LatitudeY2, boundingBox.maxLongitude, resultPt);
+				
 				{
-					closeP = closeP + p;
-					nR++;
+					float disMl = (float) (pixelTop*(resultPt[0]*3.28084));
+					double r = Math.log10(disMl);
+					double p = Math.pow(10, (double)(int)r);
+					double closeP = p;
+					int nR = 1;
+					double pixMin = 0;
+					
+					for(; closeP + p < disMl;)
+					{
+						closeP = closeP + p;
+						nR++;
+					}
+					
+					double diff = disMl - closeP;
+					
+					if (diff < closeP/6)
+					{
+						closeP = closeP - p;
+						diff = disMl - closeP;
+						nR--;
+					}
+					
+					pixMin = diff/(resultPt[0]*3.28084);
+					String strDis = new String("" + closeP + " ft");
+					Rect bounds = new Rect();
+					
+					double pinPex = p/(resultPt[0]*3.28084);
+					
+					if (nR == 1)
+					{
+						pinPex = ((p/10)/(resultPt[0]*3.28084));
+						nR = 11;
+					}
+					
+					paintTextRuler.getTextBounds(strDis, 0, strDis.length(), bounds);
+					
+					canvas.drawLine((float)pixelRight - 10, (float)pixelTop, (float)pixelRight - 10, (float)pixelBottom + (float)pixMin, paintLineRuler);
+					
+					for(int n = 0; n < nR; n++)
+					{
+						canvas.drawLine((float)pixelRight, (float)(pixelTop - pinPex*n), (float)pixelRight - 20, (float)(pixelTop - pinPex*n), paintLineRuler);
+					}
+					
+					canvas.drawText(strDis, (float)pixelRight - bounds.width() - 10, (float)pixelBottom + (float)pixMin - (bounds.height() - 5), paintTextRuler);
 				}
 				
-				double diff = disM - closeP;
+				double LatitudeX1 = MercatorProjection.pixelYToLatitude(pixelBottom + canvasPosition.y, zoomLevel);
+				double LatitudeX2 = MercatorProjection.pixelYToLatitude(pixelBottom - 1 + canvasPosition.y, zoomLevel);
+					
+				Location.distanceBetween (boundingBox.maxLatitude, LatitudeX1, boundingBox.maxLatitude, LatitudeX2, resultPt);
 				
-				if (diff < closeP/6)
 				{
-					closeP = closeP - p;
-					diff = disM - closeP;
-					nR--;
+					float disMl = (float) (pixelRight*resultPt[0]*3.28084);//result[0];
+					double r = Math.log10(disMl);
+					double p = Math.pow(10, (double)(int)r);
+					double closeP = p;
+					int nR = 1;
+					double pixMin = 0;
+					
+					for(; closeP + p < disMl;)
+					{
+						closeP = closeP + p;
+						nR++;
+					}
+					
+					double diff = disMl - closeP;
+					
+					if (diff < closeP/6)
+					{
+						if (nR == 1)
+						{
+							
+							
+						}
+						else
+						{
+							closeP = closeP - p;
+							diff = disMl - closeP;
+							nR--;
+						}
+					}
+					
+					pixMin = diff/(resultPt[0]*3.28084);
+					String strDis = new String("" + closeP + " ft");
+					Rect bounds = new Rect();
+					
+					double pinPex = p/(resultPt[0]*3.28084);
+					
+					if (nR == 1)
+					{
+						pinPex = ((p/10)/(resultPt[0]*3.28084));
+						nR = 11;
+					}
+					
+					paintTextRuler.getTextBounds(strDis, 0, strDis.length(), bounds);
+					
+					canvas.drawLine((float)pixelLeft + (float)pixMin, (float)pixelTop - 10, (float)pixelRight, (float)pixelTop - 10, paintLineRuler);
+					
+					for(int n = 0; n < nR; n++)
+					{
+						float xxPos = (float) (pixelRight - pinPex*n);
+						canvas.drawLine(xxPos, (float)(pixelTop), xxPos, (float)(pixelTop - 20), paintLineRuler);
+					}
+					
+					canvas.drawText(strDis,(float)(pixelLeft + pixMin) - (bounds.width() + 10), (float)(pixelTop - 10), paintTextRuler);
 				}
-				
-				pixMin = diff/resultPt[0];
-				String strDis = new String("" + closeP + " m");
-				Rect bounds = new Rect();
-				
-				double pinPex = p/resultPt[0];
-				
-				if (nR == 1)
-				{
-					pinPex = ((p/10)/resultPt[0]);
-					nR = 11;
-				}
-				
-				paintTextRuler.getTextBounds(strDis, 0, strDis.length(), bounds);
-				
-				canvas.drawLine((float)pixelRight - 10, (float)pixelTop, (float)pixelRight - 10, (float)pixelBottom + (float)pixMin, paintLineRuler);
-				
-				for(int n = 0; n < nR; n++)
-				{
-					canvas.drawLine((float)pixelRight, (float)(pixelTop - pinPex*n), (float)pixelRight - 20, (float)(pixelTop - pinPex*n), paintLineRuler);
-				}
-				
-				canvas.drawText(strDis, (float)pixelRight - bounds.width() - 10, (float)pixelBottom + (float)pixMin - (bounds.height() - 5), paintTextRuler);
 			}
-			
-			double LatitudeX1 = MercatorProjection.pixelYToLatitude(pixelBottom + canvasPosition.y, zoomLevel);
-			double LatitudeX2 = MercatorProjection.pixelYToLatitude(pixelBottom - 1 + canvasPosition.y, zoomLevel);
-				
-			Location.distanceBetween (boundingBox.maxLatitude, LatitudeX1, boundingBox.maxLatitude, LatitudeX2, resultPt);
-			
+			else
 			{
-				float disM = pixelRight*resultPt[0];//result[0];
-				double r =Math.log10(disM);
-				double p =Math.pow(10, (double)(int)r);
-				double closeP = p;
-				int nR = 1;
-				double pixMin = 0;
+				float[] resultPt=new float[5]; 
 				
-				for(; closeP + p < disM;)
+				double LatitudeY1 = MercatorProjection.pixelYToLatitude(pixelBottom + canvasPosition.y, zoomLevel);
+				double LatitudeY2 = MercatorProjection.pixelYToLatitude(pixelBottom - 1 + canvasPosition.y, zoomLevel);
+					
+				Location.distanceBetween (LatitudeY1, boundingBox.maxLongitude, LatitudeY2, boundingBox.maxLongitude, resultPt);
+				
 				{
-					closeP = closeP + p;
-					nR++;
+					float disM = pixelTop*resultPt[0];//result[0];
+					double r = Math.log10(disM);
+					double p = Math.pow(10, (double)(int)r);
+					double closeP = p;
+					int nR = 1;
+					double pixMin = 0;
+					
+					for(; closeP + p < disM;)
+					{
+						closeP = closeP + p;
+						nR++;
+					}
+					
+					double diff = disM - closeP;
+					
+					if (diff < closeP/6)
+					{
+						closeP = closeP - p;
+						diff = disM - closeP;
+						nR--;
+					}
+					
+					pixMin = diff/resultPt[0];
+					String strDis = new String("" + closeP + " m");
+					Rect bounds = new Rect();
+					
+					double pinPex = p/resultPt[0];
+					
+					if (nR == 1)
+					{
+						pinPex = ((p/10)/resultPt[0]);
+						nR = 11;
+					}
+					
+					paintTextRuler.getTextBounds(strDis, 0, strDis.length(), bounds);
+					
+					canvas.drawLine((float)pixelRight - 10, (float)pixelTop, (float)pixelRight - 10, (float)pixelBottom + (float)pixMin, paintLineRuler);
+					
+					for(int n = 0; n < nR; n++)
+					{
+						canvas.drawLine((float)pixelRight, (float)(pixelTop - pinPex*n), (float)pixelRight - 20, (float)(pixelTop - pinPex*n), paintLineRuler);
+					}
+					
+					canvas.drawText(strDis, (float)pixelRight - bounds.width() - 10, (float)pixelBottom + (float)pixMin - (bounds.height() - 5), paintTextRuler);
 				}
 				
-				double diff = disM - closeP;
+				double LatitudeX1 = MercatorProjection.pixelYToLatitude(pixelBottom + canvasPosition.y, zoomLevel);
+				double LatitudeX2 = MercatorProjection.pixelYToLatitude(pixelBottom - 1 + canvasPosition.y, zoomLevel);
+					
+				Location.distanceBetween (boundingBox.maxLatitude, LatitudeX1, boundingBox.maxLatitude, LatitudeX2, resultPt);
 				
-				if (diff < closeP/6)
 				{
-					closeP = closeP - p;
-					diff = disM - closeP;
-					nR--;
+					float disM = pixelRight*resultPt[0];//result[0];
+					double r =Math.log10(disM);
+					double p =Math.pow(10, (double)(int)r);
+					double closeP = p;
+					int nR = 1;
+					double pixMin = 0;
+					
+					for(; closeP + p < disM;)
+					{
+						closeP = closeP + p;
+						nR++;
+					}
+					
+					double diff = disM - closeP;
+					
+					if (diff < closeP/6)
+					{
+						closeP = closeP - p;
+						diff = disM - closeP;
+						nR--;
+					}
+					
+					pixMin = diff/resultPt[0];
+					String strDis = new String("" + closeP + " m");
+					Rect bounds = new Rect();
+					
+					double pinPex = p/resultPt[0];
+					
+					if (nR == 1)
+					{
+						pinPex = ((p/10)/resultPt[0]);
+						nR = 11;
+					}
+					
+					paintTextRuler.getTextBounds(strDis, 0, strDis.length(), bounds);
+					
+					canvas.drawLine((float)pixelLeft + (float)pixMin, (float)pixelTop - 10, (float)pixelRight, (float)pixelTop - 10, paintLineRuler);
+					
+					for(int n = 0; n < nR; n++)
+					{
+						float xxPos = (float) (pixelRight - pinPex*n);
+						canvas.drawLine(xxPos, (float)(pixelTop), xxPos, (float)(pixelTop - 20), paintLineRuler);
+					}
+					
+					canvas.drawText(strDis,(float)(pixelLeft + pixMin) - (bounds.width() + 10), (float)(pixelTop - 10), paintTextRuler);
 				}
-				
-				pixMin = diff/resultPt[0];
-				String strDis = new String("" + closeP + " m");
-				Rect bounds = new Rect();
-				
-				double pinPex = p/resultPt[0];
-				
-				if (nR == 1)
-				{
-					pinPex = ((p/10)/resultPt[0]);
-					nR = 11;
-				}
-				
-				paintTextRuler.getTextBounds(strDis, 0, strDis.length(), bounds);
-				
-				canvas.drawLine((float)pixelLeft + (float)pixMin, (float)pixelTop - 10, (float)pixelRight, (float)pixelTop - 10, paintLineRuler);
-				
-				for(int n = 0; n < nR; n++)
-				{
-					float xxPos = (float) (pixelRight - pinPex*n);
-					canvas.drawLine(xxPos, (float)(pixelTop), xxPos, (float)(pixelTop - 20), paintLineRuler);
-				}
-				
-				canvas.drawText(strDis,(float)(pixelLeft + pixMin) - (bounds.width() + 10), (float)(pixelTop - 10), paintTextRuler);
 			}
 		}
 		catch(Exception ex)

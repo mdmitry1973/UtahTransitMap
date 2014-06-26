@@ -9,6 +9,9 @@
     <string name="loading_data">Loading data</string>
     <string name="please_wait">Please wait...</string>
     <string name="data_counter">5</string>
+    <string name="data_date">20140404_1817</string>
+    <string name="about">About</string>
+    <string name="about_message">Made by Dmitry Mikhaevich mdmitry1973@gmail.com</string>
     <string name="Mo">Mo</string>
     <string name="Tu">Tu</string>
     <string name="We">We</string>
@@ -16,12 +19,25 @@
     <string name="Fr">Fr</string>
     <string name="Sa">Sa</string>
     <string name="Su">Su</string>
-    <string name="Unzipping_data">Unzipping data</string>
+    <string name="Unzipping_data">Разархивирование данных</string>
+    <string name="please_wait_5">Please wait, it can take about 5 minutes</string>
     <string name="please_wait_20">Please wait, it can take about 20 minutes</string>
+    <string name="please_wait_40">Please wait, it can take about 40 minutes</string>
+    <string name="please_wait_30">Please wait, it can take about 30 minutes</string>
     <string name="show_route">Show route trip</string>
     <string name="timeString">Time</string>
     <string name="settings_bg_color_confirm">Tap here to confirm</string>
     <string name="settings_default_color_confirm">Default color</string>
     <string name="settings_bg_color_dialog">Pick a color</string>
     <string name="tap_on_station">Tap on a stop for see routes and time table.</string>
+    <string name="pref_MetricTitle">Select a unit of measurement.</string>
+    <string name="pref_Metric_default">1</string>
+    <string name="check_dat">Check for update time table</string>
+    <string name="up_to_date">Your time table is up to date</string>
+    <string name="new_time_table">New time table exist. If you want update time table press OK. It can take about 40 minutes.</string>
+    <string name="finished_update_data">Finished update data.</string>
+	<string name="prepare_data">Preparing data.</string>
+	<string name="finale_prepare_data">Final preparing data.</string>
+	<string name="download_data">Downloading data.</string>
+	<string name="no_network">No find network connection.</string>
 </resources>

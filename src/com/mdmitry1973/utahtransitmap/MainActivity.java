@@ -1,70 +1,48 @@
 package com.mdmitry1973.utahtransitmap;
 
 import android.location.Location;
-import android.location.LocationListener;
 import android.location.LocationManager;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Looper;
 import android.os.Message;
-import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.SharedPreferences;
-//import android.content.DialogInterface;
-//import android.content.DialogInterface.OnClickListener;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
-import android.gesture.GestureOverlayView.OnGestureListener;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.drawable.Drawable;
 import android.os.Environment;
+import android.preference.PreferenceManager;
 import android.util.Log;
-import android.view.GestureDetector;
-import android.view.GestureDetector.OnDoubleTapListener;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.View.OnClickListener;
 import android.view.View.OnTouchListener;
-import android.view.Window;
-import android.widget.ArrayAdapter;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.LinearLayout.LayoutParams;
-import android.widget.ListView;
-import android.widget.TextView;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.StringReader;
-import java.nio.charset.Charset;
-import java.nio.charset.CharsetEncoder;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
 import java.util.zip.*;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -103,6 +81,8 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 public class MainActivity extends MapActivity implements ColorPickerDialog.OnColorChangedListener  {
+	
+	private static final int SETTINGS_RESULT = 1;
 	
 	public final String kMapFileName			= "utah.map";
 	public final String kStopsFileName 			= "stops.txt";
@@ -150,15 +130,26 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 	
 	public static int currentDay = 0;
 	
-	ProgressDialog  progress = null;
+	public static ProgressDialog  progressDialog = null;
 	
-	public final int k_event_unzip 			= 111;
-	public final int k_event_loading_data 	= 222;
+	public final static int k_event_unzip 			= 111;
+	public final static int k_event_loading_data 	= 222;
+	public final static int k_event_unzip2 		= 333;
+	public final static int k_event_prepare_data 	= 444;
+	public final static int k_event_prepare_data_2 = 666;
+	public final static int k_event_download_data 	= 555;
 	
 	public static String sel_tripId = ""; 
 	public static String sel_roudeId = ""; 
 	
-	private Handler handler = new Handler() {
+	public static String curentMetric = "1";
+	public static String data_date = "";
+	
+	public static int progressPrepareData = 0;
+	
+	public static int nRequestedOrientation = -1;
+	
+	public Handler handler = new Handler() {
         @Override
             public void handleMessage(Message msg) {
         	
@@ -166,23 +157,66 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
         	
         	if (y == k_event_unzip)
         	{
-        		progress.dismiss();
-        		progress = new ProgressDialog(activity);
-        		progress.setTitle(getResources().getString(R.string.Unzipping_data));
-        		progress.setMessage(getResources().getString(R.string.please_wait_20));
-        		progress.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-        		progress.setMax(7000);
-        		progress.show();
+        		progressDialog.dismiss();
+        		progressDialog = new ProgressDialog(activity);
+        		progressDialog.setTitle(getResources().getString(R.string.Unzipping_data));
+        		progressDialog.setMessage(getResources().getString(R.string.please_wait_20));
+        		progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        		progressDialog.setMax(7000);
+        		progressDialog.show();
+        	}
+        	else
+    		if (y == k_event_unzip2)
+        	{
+    			progressDialog.dismiss();
+    			progressDialog = new ProgressDialog(activity);
+    			progressDialog.setTitle(getResources().getString(R.string.Unzipping_data));
+    			progressDialog.setMessage(getResources().getString(R.string.please_wait_5));
+        		progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        		progressDialog.setMax(6);
+        		progressDialog.show();
+        	}
+    		else
+    		if (y == k_event_download_data)
+        	{
+    			progressDialog.dismiss();
+    			progressDialog = new ProgressDialog(activity);
+        		progressDialog.setTitle(getResources().getString(R.string.download_data));
+        		progressDialog.setMessage(getResources().getString(R.string.please_wait));
+        		progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+        		progressDialog.show();
+        	}
+    		else
+    		if (y == k_event_prepare_data)
+        	{
+    			progressDialog.dismiss();
+        		progressDialog = new ProgressDialog(activity);
+        		progressDialog.setTitle(getResources().getString(R.string.prepare_data));
+        		progressDialog.setMessage(getResources().getString(R.string.please_wait_20));
+        		progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        		progressDialog.setMax(350000);
+        		progressDialog.show();
+        	}
+        	else
+    		if (y == k_event_prepare_data_2)
+        	{
+    			progressDialog.dismiss();
+        		progressDialog = new ProgressDialog(activity);
+        		progressDialog.setTitle(getResources().getString(R.string.finale_prepare_data));
+        		progressDialog.setMessage(getResources().getString(R.string.please_wait_20));
+        		progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        		progressDialog.setMax(6500);
+        		progressDialog.show();
         	}
         	else
         	if (y == k_event_loading_data)
         	{
-        		progress.dismiss();
-        		progress = new ProgressDialog(activity);
-        		progress.setTitle(getResources().getString(R.string.loading_data));
-        		progress.setMessage(getResources().getString(R.string.please_wait));
-        		progress.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-        		progress.show();
+        		progressDialog.dismiss();
+        		progressDialog = new ProgressDialog(activity);
+        		progressDialog.setTitle(getResources().getString(R.string.loading_data));
+        		progressDialog.setMessage(getResources().getString(R.string.please_wait));
+        		progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+        		progressDialog.show();
         	}
         	else
         	{
@@ -199,11 +233,11 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 		
 		activity = this;
 		
-		progress = new ProgressDialog(this);
-		progress.setTitle(getResources().getString(R.string.loading_data));
-  		progress.setMessage(getResources().getString(R.string.please_wait));
-		progress.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-		progress.show();
+		progressDialog = new ProgressDialog(this);
+		progressDialog.setTitle(getResources().getString(R.string.loading_data));
+		progressDialog.setMessage(getResources().getString(R.string.please_wait));
+  		progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+		progressDialog.show();
 		
 	    Calendar rightNow = Calendar.getInstance();
 	    
@@ -231,9 +265,28 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 		filesMaps.put(kTripsFileName, 		new File(externalCacheDir, kTripsFileName));
 		
 		mapView = (MapView) findViewById(R.id.mapView);
+		
+		SharedPreferences sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this);
+		
+    	curentMetric = sharedPrefs.getString("pref_MetricType", "1");
+    	data_date = sharedPrefs.getString("data_date", getResources().getString(R.string.data_date));
+    	
+    	if (sharedPrefs.contains("data_date") == false)
+    	{
+    		SharedPreferences.Editor editor = sharedPrefs.edit();
+    		editor.putString("data_date", data_date);
+    		editor.commit();
+    	}
+    	else
+    	{
+    		//SharedPreferences.Editor editor = sharedPrefs.edit();
+    		//editor.clear();
+    		//editor.commit();
+    		//data_date = "";
+    	}
   		
   		configureMapView();
-		
+  		
 		new Thread(new Runnable() {
 			  @Override
 			  public void run()
@@ -274,73 +327,13 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 		  					
 			  				if (needUpdate)
 			  				{
-			  					int nProgress = 0;
-			  					
 			  					handler.sendEmptyMessage(k_event_unzip);
+			  					unZipData(dataZipFile, externalCacheDir);
 			  					
-			  					ZipInputStream zis = new ZipInputStream(new FileInputStream(dataZipFile));
-			  					
-			  					try {
-			  					     
-			  						ZipEntry ze;
-			  					     while ((ze = zis.getNextEntry()) != null) {
-			  					    	 
-			  					    	File currentDir = new File(externalCacheDir.getAbsolutePath());
-			  					    	 
-			  					    	 String zipName =  ze.getName();
-			  					    	 
-			  					    	 if (zipName.indexOf('/') != -1)
-			  					    	 {
-			  					    		 if (zipName.indexOf('/') == zipName.length() - 1)
-			  					    		 {
-			  					    			String dirName = zipName.substring(0, zipName.length() - 1);
-			  					    			File file = new File(currentDir, dirName);
-			  					    			file.mkdirs();
-			  					    			 continue;
-			  					    		 }
-			  					    		 else
-			  					    		 {
-				  					    		 String []dirs = zipName.split("/");
-				  					    		 
-				  					    		 for(int h = 0; h < dirs.length - 1; h++)
-				  					    		 {
-				  					    			File file = new File(currentDir, dirs[h]);
-				  					    			if (!file.exists())
-				  					    			{
-				  					    				file.mkdir();
-				  					    			}
-						  					    	currentDir = file;
-				  					    		 }
-				  					    		 
-				  					    		zipName =  dirs[dirs.length - 1];
-			  					    		 }
-			  					    	}
-			  					    	
-										File file = new File(currentDir, zipName);
-										FileOutputStream stream = new FileOutputStream(file);
-										byte[] buffer = new byte[1024];
-										int count;
-										while ((count = zis.read(buffer, 0, 1024)) != -1) 
-										{
-											stream.write(buffer, 0, count);
-										}	
-										
-										stream.close();
-											
-										nProgress++;
-										progress.setProgress(nProgress);	
-			  					     }
-			  					 } catch (IOException e) {
-			  						// TODO Auto-generated catch block
-			  						e.printStackTrace();
-			  					} finally {
-			  					     try {
-			  							zis.close();
-			  						} catch (IOException e) {
-			  							// TODO Auto-generated catch block
-			  							e.printStackTrace();
-			  						}
-			  					 }
+			  					SharedPreferences sharedPrefs = PreferenceManager.getDefaultSharedPreferences(activity);
+			  			    	SharedPreferences.Editor editor = sharedPrefs.edit();
+			  			    	editor.putString("data_date", getResources().getString(R.string.data_date));
+			  			    	editor.commit();
 			  					
 			  					try {
 			  						DocumentBuilderFactory xmlFactory = DocumentBuilderFactory.newInstance();
@@ -365,7 +358,7 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 			  					handler.sendEmptyMessage(k_event_loading_data);
 			  				}
 			  			}
-			  			catch(FileNotFoundException e)
+			  			catch(Exception e)
 			  			{
 			  				e.printStackTrace();
 			  			}
@@ -497,7 +490,10 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 				  			sel_tripId = arrTripsId[t]; 
 				  			sel_roudeId = arrRoutesId[t]; 
 				  			
-				  			colorChanged("", Integer.parseInt(arrColorsId[t]));
+				  			if (sel_tripId.length() != 0)
+				  			{
+				  				colorChanged("", Integer.parseInt(arrColorsId[t]));
+				  			}
 				  		}
 			  		}
 			  		
@@ -509,10 +505,10 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 			      @Override
 			      public void run()
 			      {
-			    	  progress.dismiss();
+			    	  progressDialog.dismiss();
 			    	  
 			    	  AlertDialog.Builder builder = new AlertDialog.Builder(activity);
-			    	  builder.setMessage(R.string.tap_on_station).setTitle(R.string.app_name);
+			    	  builder.setMessage(R.string.tap_on_station).setTitle(R.string.app_name).setPositiveButton("Ok", null);
 			    	  AlertDialog dialog = builder.create();
 			    	
 			    	  dialog.show();
@@ -529,7 +525,7 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 				Log.v("MainActivity", "OnTouchListener=" + event.toString());
 				
 				if (event.getAction() == MotionEvent.ACTION_UP && 
-					event.getEventTime() - event.getDownTime() > 1000)
+					event.getEventTime() - event.getDownTime() > 500)
 				{
 					try{
 						
@@ -610,7 +606,6 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 	   editor.commit();
     }
 
-	
 	protected void onDestroy(){
 		super.onDestroy();
 		
@@ -624,12 +619,45 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 	}
 	
 	@Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data)
+    {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if(requestCode==SETTINGS_RESULT)
+        {
+        	SharedPreferences sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this);
+        	
+        	curentMetric = sharedPrefs.getString("pref_MetricType", "1");
+        	
+        	mapView.redraw();
+        }
+    }
+	
+	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 	    // Handle item selection
 	    switch (item.getItemId()) {
 	        case R.id.action_exit:
 	        {
 	        	 finish();
+	        }
+	        return true;
+	        
+	        case R.id.action_check_data:
+	        {
+	        	nRequestedOrientation = getRequestedOrientation();
+	        	setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_NOSENSOR);
+	        	checkForData();
+	        }
+	        return true;
+	        
+	        case R.id.action_about:
+	        {
+	        	AlertDialog.Builder builder = new AlertDialog.Builder(activity);
+		    	builder.setMessage(R.string.about_message).setTitle(R.string.about).setPositiveButton("Ok", null);
+		    	AlertDialog dialog = builder.create();
+		    	
+		    	dialog.show();
 	        }
 	        return true;
 	        
@@ -646,8 +674,10 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 	        return true;
 	        
 	        case R.id.action_settings:
-	            //showHelp();
-	           // return true;
+	        {
+	        	startActivityForResult(new Intent(this, UserSettingActivity.class), SETTINGS_RESULT);
+	        }
+	        return true;
 	        default:
 	            return super.onOptionsItemSelected(item);
 	    }
@@ -739,93 +769,127 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 		return bitmapCurrentPosition;
 	}
 	
-	public void colorChanged(String key, int color)
-	{
-		SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
-	    SharedPreferences.Editor editor = settings.edit();
-	    editor.putInt(key, color);
-		
-		try{
-			ArrayList<GeoPoint> geoPoints = new ArrayList<GeoPoint>();
-			BufferedReader serviceFileBuffer = new BufferedReader(new FileReader(filesMaps.get(kStopTimesFileName)));
-			
-	  		serviceFileBuffer.readLine();
-	  		
-	  		Boolean foundTrip = false;
-			
-			while(serviceFileBuffer.ready())
-			{
-				//trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign,pickup_type,drop_off_type,shape_dist_traveled
-				String serviceLine = serviceFileBuffer.readLine();
-				String[] serviceData = serviceLine.split(",");
+	 private class LoadStationTripTask extends AsyncTask<String, Void, Boolean> {
+	        
+		 	public ArrayList<GeoPoint> geoPoints;
+		 	public int color;
+		 	 
+		 	public LoadStationTripTask(int color) 
+		 	{
+		 		 this.color = color;
+		 	}
+		 
+		 	@Override
+	        protected Boolean doInBackground(String... urls) {
+	              
+	      			try {
+	      				
+	      				geoPoints = new ArrayList<GeoPoint>();
+	      				BufferedReader serviceFileBuffer = new BufferedReader(new FileReader(filesMaps.get(kStopTimesFileName)));
+	      				
+	      		  		serviceFileBuffer.readLine();
+	      		  		
+	      		  		Boolean foundTrip = false;
+	      				
+	      				while(serviceFileBuffer.ready())
+	      				{
+	      					//trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign,pickup_type,drop_off_type,shape_dist_traveled
+	      					String serviceLine = serviceFileBuffer.readLine();
+	      					String[] serviceData = serviceLine.split(",");
+	      					
+	      					if (serviceData[0].compareTo(sel_tripId) == 0)
+	      					{
+	      						foundTrip = true;
+	      						
+	      						String stop_id = serviceData[3];
+	      						
+	      						/*
+	      						<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+	      						<Stop stop_code="174068" stop_desc="E 9400 S" stop_id="13697" stop_lat="40.580351" stop_lon="-111.829475"
+	      						 */
+	      						
+	      						File externalCacheDir = getExternalCacheDir();
+	      						File stopFile = new File(new File(externalCacheDir, "stops_data"), String.format("%s", stop_id));
+	      						
+	      						try {
+	      							DocumentBuilderFactory xmlFactory = DocumentBuilderFactory.newInstance();
+	      							DocumentBuilder xmlBuilder;
+	      							xmlBuilder = xmlFactory.newDocumentBuilder();
+	      							Document document;
+	      							document = xmlBuilder.parse(stopFile);
+	      							Element elRoot = document.getDocumentElement();
+	      							
+	      							String stop_lat = elRoot.getAttribute("stop_lat");
+	      							String stop_lon = elRoot.getAttribute("stop_lon");
+	      							
+	      							GeoPoint point = new GeoPoint(Double.parseDouble(stop_lat), Double.parseDouble(stop_lon));
+	      							
+	      							geoPoints.add(point);
+	      							
+	      						}
+	      						catch(Exception ex)
+	      						{
+	      							Log.v("MainActivity", "read CalendarFileName");
+	      						}
+	      					}
+	      					else
+	      					{
+	      						if (foundTrip == true)
+	      						{
+	      							break;
+	      						}
+	      					}
+	      				}
+	      				
+	      				serviceFileBuffer.close();
+	      	            
+	      	        } catch (Exception e) {
+	      	            //return e.toString();
+	      	        	Log.v("MainActivity", "Error" + e);
+	      	        } finally {
+	      	           
+	      	           
+	      	        }
+	            	
+	            	return true;
+	        }
+	        // onPostExecute displays the results of the AsyncTask.
+	        @Override
+	        protected void onPostExecute(Boolean result) {
+	        	progressDialog.dismiss();
+	        	
+	        	TripOverlayItem item = new TripOverlayItem(sel_tripId,  sel_roudeId, geoPoints, color, activity);
 				
-				if (serviceData[0].compareTo(sel_tripId) == 0)
+				List<OverlayItem> list = m_listOverlayTrips.getOverlayItems();
+				
+				for(int ii = 0; ii < list.size(); ii++)
 				{
-					foundTrip = true;
-					
-					String stop_id = serviceData[3];
-					
-					/*
-					<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-					<Stop stop_code="174068" stop_desc="E 9400 S" stop_id="13697" stop_lat="40.580351" stop_lon="-111.829475"
-					 */
-					
-					File externalCacheDir = getExternalCacheDir();
-					File stopFile = new File(new File(externalCacheDir, "stops_data"), String.format("%s", stop_id));
-					
-					try {
-						DocumentBuilderFactory xmlFactory = DocumentBuilderFactory.newInstance();
-						DocumentBuilder xmlBuilder;
-						xmlBuilder = xmlFactory.newDocumentBuilder();
-						Document document;
-						document = xmlBuilder.parse(stopFile);
-						Element elRoot = document.getDocumentElement();
-						
-						String stop_lat = elRoot.getAttribute("stop_lat");
-						String stop_lon = elRoot.getAttribute("stop_lon");
-						
-						GeoPoint point = new GeoPoint(Double.parseDouble(stop_lat), Double.parseDouble(stop_lon));
-						
-						geoPoints.add(point);
-						
-					}
-					catch(Exception ex)
+					if (((TripOverlayItem)list.get(ii)).routeID.compareTo(sel_roudeId) == 0)
 					{
-						Log.v("MainActivity", "read CalendarFileName");
-					}
-				}
-				else
-				{
-					if (foundTrip == true)
-					{
+						list.remove(ii);
 						break;
 					}
 				}
-			}
+				
+				m_listOverlayTrips.getOverlayItems().add(item);
+	  		
+				mapView.redraw();
+	       }
+	    }
+	
+	public void colorChanged(String key, int color)
+	{
+		progressDialog = new ProgressDialog(activity);
+		progressDialog.setTitle(getResources().getString(R.string.loading_data));
+		progressDialog.setMessage(getResources().getString(R.string.please_wait));
+		progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+		progressDialog.show();
 			
-			serviceFileBuffer.close();
-			
-			TripOverlayItem item = new TripOverlayItem(sel_tripId,  sel_roudeId, geoPoints, color, this);
-			
-			List<OverlayItem> list = m_listOverlayTrips.getOverlayItems();
-			
-			for(int ii = 0; ii < list.size(); ii++)
-			{
-				if (((TripOverlayItem)list.get(ii)).routeID.compareTo(sel_roudeId) == 0)
-				{
-					list.remove(ii);
-					break;
-				}
-			}
-			
-			m_listOverlayTrips.getOverlayItems().add(item);
-  		}
-		catch(Exception ex)
-		{
-			Log.v("MainActivity", "read CalendarFileName");
-		}
-		
-		mapView.redraw();
+		SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
+	    SharedPreferences.Editor editor = settings.edit();
+	    editor.putInt(key, color);
+	    
+	    new LoadStationTripTask(color).execute("http://www.gtfs-data-exchange.com/agency/utah-transit-authority/latest.zip");
 	}
 	
 	public void setTripOverlay(String tripId, String roudeId)
@@ -882,5 +946,218 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 	public int getCurrentDay()
 	{
 		return currentDay;
+	}
+	
+	public String getCurrentMetric()
+	{
+		return curentMetric;
+	}
+	
+	 private class CheckTimeTable4NewVersionTask extends AsyncTask<String, Void, Boolean> {
+	        @Override
+	        protected Boolean doInBackground(String... urls) {
+	              
+	      			HttpURLConnection connection = null;
+	      	        Boolean res = false;
+	      	        
+	      			try {
+	      	            URL url = new URL(urls[0]);//"http://www.gtfs-data-exchange.com/agency/utah-transit-authority/latest.zip");
+	      	            connection = (HttpURLConnection) url.openConnection();
+	      	            connection.connect();
+
+	      	            // expect HTTP 200 OK, so we don't mistakenly save error report
+	      	            // instead of the file
+	      	            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
+	      	                //return "Server returned HTTP " + connection.getResponseCode()
+	      	                //        + " " + connection.getResponseMessage();
+	      	            	Log.v("MainActivity", "Error" + connection.getResponseCode());
+	      	            }
+
+	      	            // this will be useful to display download percentage
+	      	            // might be -1: server did not report the length
+	      	            int fileLength = connection.getContentLength();
+	      	            
+	      	            URL new_url = connection.getURL();
+	      	            
+	      	            //utah-transit-authority_20140504_1817.zip
+	      	            String fileName = new_url.getFile();
+	      	            String []arrFileName = fileName.split("_");
+	      	            
+	      	            if (arrFileName.length >2)
+	      	            {
+		      	            String fileData = arrFileName[1];
+		      	            String fileTime = arrFileName[2];
+		      	            
+		      	            String year = fileData.substring(0, 4);
+		      	            String month = fileData.substring(4, 6);
+		      	            String day = fileData.substring(6);
+		      	            
+		      	            Date fileDate = new Date(Integer.parseInt(year), Integer.parseInt(month), Integer.parseInt(day));
+		      	            
+		      	            //20140504_1817
+		      	            SharedPreferences sharedPrefs = PreferenceManager.getDefaultSharedPreferences(activity);
+		      	            String curentDateData = sharedPrefs.getString("data_date", getResources().getString(R.string.data_date));
+		      	            
+		      	            String []arrCurName = curentDateData.split("_");
+		      	            String fileCurData = arrCurName[0];
+		      	            String fileCurTime = arrCurName[1];
+		      	            
+		      	            String cur_year = fileCurData.substring(0, 4);
+		      	            String cur_month = fileCurData.substring(4, 6);
+		      	        	String cur_day = fileCurData.substring(6);
+		      	            
+		      	            Date curDate = new Date(Integer.parseInt(cur_year), Integer.parseInt(cur_month), Integer.parseInt(cur_day));
+		      	            
+		      	            if (curDate.compareTo(fileDate) < 0)
+		      	            {
+		      	            	Log.v("MainActivity", "new version exist");
+		      	            	data_date = year + month + day + "_" + fileTime;
+		      	            	res = true;
+		      	            }
+	      	            }
+	      	        } catch (Exception e) {
+	      	            //return e.toString();
+	      	        	Log.v("MainActivity", "Error" + e);
+	      	        } finally {
+	      	           
+	      	            if (connection != null)
+	      	                connection.disconnect();
+	      	        }
+	            	
+	            	return res;
+	        }
+	        // onPostExecute displays the results of the AsyncTask.
+	        @Override
+	        protected void onPostExecute(Boolean result) {
+	        	progressDialog.dismiss();
+	        	
+	        	if (result == true)
+	        	{
+	        		AlertDialog.Builder builder = new AlertDialog.Builder(activity);
+			    	builder.setMessage(R.string.new_time_table).setTitle(R.string.app_name).setPositiveButton("Ok", new DialogInterface.OnClickListener(){
+
+						@Override
+						public void onClick(DialogInterface dialog, int which) {
+							progressDialog = new ProgressDialog(activity);
+							progressDialog.setTitle(getResources().getString(R.string.download_data));
+				    		progressDialog.setMessage(getResources().getString(R.string.please_wait));
+				    		progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+				    		progressDialog.show();
+							
+							new UpdateTimeTablleTask(activity).execute("http://www.gtfs-data-exchange.com/agency/utah-transit-authority/latest.zip");
+						}
+			    		
+			    	}).setNegativeButton("Cancel", null);
+			    	AlertDialog dialog = builder.create();
+			    	
+			    	dialog.show();
+	        	}
+	        	else
+	        	{
+	        		AlertDialog.Builder builder = new AlertDialog.Builder(activity);
+			    	builder.setMessage(R.string.up_to_date).setTitle(R.string.app_name).setPositiveButton("Ok", null);
+			    	AlertDialog dialog = builder.create();
+			    	dialog.show();
+			    	
+			    	setRequestedOrientation(nRequestedOrientation);
+	        	}
+	       }
+	    }
+	 
+	public void checkForData()
+	{
+		ConnectivityManager connMgr = (ConnectivityManager) 
+		getSystemService(Context.CONNECTIVITY_SERVICE);
+		NetworkInfo networkInfo = connMgr.getActiveNetworkInfo();
+		if (networkInfo != null && networkInfo.isConnected()) {
+		    // fetch data
+			Log.v("MainActivity", "Ready");
+			
+			progressDialog = new ProgressDialog(activity);
+    		progressDialog.setTitle(getResources().getString(R.string.loading_data));
+    		progressDialog.setMessage(getResources().getString(R.string.please_wait));
+    		progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+    		progressDialog.show();
+			
+			new CheckTimeTable4NewVersionTask().execute("http://www.gtfs-data-exchange.com/agency/utah-transit-authority/latest.zip");
+		} else {
+			Log.v("MainActivity", "Error" );
+			
+			AlertDialog.Builder builder = new AlertDialog.Builder(activity);
+	    	builder.setMessage(R.string.no_network).setTitle(R.string.app_name).setPositiveButton("Ok", null);
+	    	AlertDialog dialog = builder.create();
+	    	dialog.show();
+		}
+	}
+	
+	public void unZipData(File dataZipFile, File externalCacheDir)
+	{
+		int nProgress = 0;
+		ZipInputStream zis = null;
+		
+		try {
+		     
+			zis = new ZipInputStream(new FileInputStream(dataZipFile));
+			
+			ZipEntry ze;
+		     while ((ze = zis.getNextEntry()) != null) {
+		    	 
+		    	File currentDir = new File(externalCacheDir.getAbsolutePath());
+		    	 
+		    	 String zipName =  ze.getName();
+		    	 
+		    	 if (zipName.indexOf('/') != -1)
+		    	 {
+		    		 if (zipName.indexOf('/') == zipName.length() - 1)
+		    		 {
+		    			String dirName = zipName.substring(0, zipName.length() - 1);
+		    			File file = new File(currentDir, dirName);
+		    			file.mkdirs();
+		    			 continue;
+		    		 }
+		    		 else
+		    		 {
+			    		 String []dirs = zipName.split("/");
+			    		 
+			    		 for(int h = 0; h < dirs.length - 1; h++)
+			    		 {
+			    			File file = new File(currentDir, dirs[h]);
+			    			if (!file.exists())
+			    			{
+			    				file.mkdir();
+			    			}
+			    			currentDir = file;
+			    		 }
+			    		 
+			    		zipName =  dirs[dirs.length - 1];
+		    		 }
+		    	}
+		    	
+			File file = new File(currentDir, zipName);
+			FileOutputStream stream = new FileOutputStream(file);
+			byte[] buffer = new byte[1024];
+			int count;
+			while ((count = zis.read(buffer, 0, 1024)) != -1) 
+			{
+				stream.write(buffer, 0, count);
+			}	
+			
+			stream.close();
+				
+			nProgress++;
+			progressDialog.setProgress(nProgress);	
+		     }
+		 } catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} finally {
+		     try {
+		    	 if (zis != null)
+		    		 zis.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		 }
 	}
 }
