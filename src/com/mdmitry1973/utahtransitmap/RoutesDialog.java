@@ -78,6 +78,8 @@ public class RoutesDialog extends Dialog {
 	private ArrayList<Button> ButtonList = new ArrayList<Button>();
 	private ListView listView = null;
 	
+	public static String cur_tripsId = "";
+	
 	String route_id = "";
 	
 	public class TimeTableListAdapter extends ArrayAdapter<TimeTableItem> {
@@ -129,6 +131,17 @@ public class RoutesDialog extends Dialog {
             }else{
                 holder = (AtomPaymentHolder) convertView.getTag();
             }
+            
+            String strTripId = getItem(position).getTripId();
+            
+            if (cur_tripsId.compareTo(strTripId) == 0)
+            {
+            	holder.checkedButton.setCompoundDrawablesWithIntrinsicBounds(null,null,null,  m_activity.getResources().getDrawable( R.drawable.on));
+            }
+            else
+            {
+            	holder.checkedButton.setCompoundDrawablesWithIntrinsicBounds(null,null,null,  m_activity.getResources().getDrawable( R.drawable.off));
+            }
 
             holder.strTime.setText(getItem(position).getTime());
             holder.checkedButton.setOnClickListener(new View.OnClickListener() {
@@ -149,10 +162,12 @@ public class RoutesDialog extends Dialog {
             			}
                 		
                 		((Button)v).setCompoundDrawablesWithIntrinsicBounds(null,null,null,  m_activity.getResources().getDrawable( R.drawable.on));
+                	
+                		cur_tripsId = (String) v.getTag();
                 	}
                 }
             });
-            holder.checkedButton.setTag( getItem(position).getTripId());
+            holder.checkedButton.setTag(strTripId);
             return convertView;
 		}
 	}
@@ -237,6 +252,8 @@ public class RoutesDialog extends Dialog {
 				        	Log.v("MainActivity", "Clicked button");
 				        	
 				        	route_id = mapStopButtom.get(v);
+				        	
+				        	cur_tripsId = m_activity.getCurrentTripOverlay(route_id);
 				        	
 				        	final Dialog dialog = new Dialog(m_activity);
 							
@@ -452,7 +469,6 @@ public class RoutesDialog extends Dialog {
 								});
 							}
 							
-							//ArrayList<String> listTime = null;
 							ArrayList<TimeTableItem> listTime = null;
 							
 							if (currentDay == Calendar.MONDAY)
@@ -499,7 +515,6 @@ public class RoutesDialog extends Dialog {
 							
 							if (listTime != null)
 							{
-								//adapter = new StableArrayAdapter(m_activity, android.R.layout.simple_list_item_1, listTime);
 								adapter = new TimeTableListAdapter(m_activity, R.layout.time_table_item, listTime);
 								listView.setAdapter(adapter);
 							}

@@ -162,6 +162,7 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
         		progressDialog.setTitle(getResources().getString(R.string.Unzipping_data));
         		progressDialog.setMessage(getResources().getString(R.string.please_wait_20));
         		progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        		progressDialog.setCanceledOnTouchOutside(false);
         		progressDialog.setMax(7000);
         		progressDialog.show();
         	}
@@ -173,6 +174,7 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
     			progressDialog.setTitle(getResources().getString(R.string.Unzipping_data));
     			progressDialog.setMessage(getResources().getString(R.string.please_wait_5));
         		progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        		progressDialog.setCanceledOnTouchOutside(false);
         		progressDialog.setMax(6);
         		progressDialog.show();
         	}
@@ -184,6 +186,7 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
         		progressDialog.setTitle(getResources().getString(R.string.download_data));
         		progressDialog.setMessage(getResources().getString(R.string.please_wait));
         		progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+        		progressDialog.setCanceledOnTouchOutside(false);
         		progressDialog.show();
         	}
     		else
@@ -194,6 +197,7 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
         		progressDialog.setTitle(getResources().getString(R.string.prepare_data));
         		progressDialog.setMessage(getResources().getString(R.string.please_wait_20));
         		progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        		progressDialog.setCanceledOnTouchOutside(false);
         		progressDialog.setMax(350000);
         		progressDialog.show();
         	}
@@ -205,6 +209,7 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
         		progressDialog.setTitle(getResources().getString(R.string.finale_prepare_data));
         		progressDialog.setMessage(getResources().getString(R.string.please_wait_20));
         		progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        		progressDialog.setCanceledOnTouchOutside(false);
         		progressDialog.setMax(6500);
         		progressDialog.show();
         	}
@@ -216,6 +221,7 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
         		progressDialog.setTitle(getResources().getString(R.string.loading_data));
         		progressDialog.setMessage(getResources().getString(R.string.please_wait));
         		progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+        		progressDialog.setCanceledOnTouchOutside(false);
         		progressDialog.show();
         	}
         	else
@@ -237,6 +243,7 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 		progressDialog.setTitle(getResources().getString(R.string.loading_data));
 		progressDialog.setMessage(getResources().getString(R.string.please_wait));
   		progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+  		progressDialog.setCanceledOnTouchOutside(false);
 		progressDialog.show();
 		
 	    Calendar rightNow = Calendar.getInstance();
@@ -477,41 +484,116 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 			  		
 			  		if (settings.contains("tripsId"))
 			  		{
-				  		String tripsId = settings.getString("tripsId", "");
-				  		String roudesId = settings.getString("roudesId", "");
-				  		String colorsId = settings.getString("colorsId", "");
-				  		
-				  		String[] arrTripsId = tripsId.split(",");
-				  		String[] arrRoutesId = roudesId.split(",");
-				  		String[] arrColorsId = colorsId.split(",");
-				  		
-				  		for(int t = 0; t < arrTripsId.length; t++)
+			  			String tripsId = settings.getString("tripsId", "");
+			  			String roudesId = settings.getString("roudesId", "");
+			  			String colorsId = settings.getString("colorsId", "");
+			  		
+			  			String[] arrTripsId = tripsId.split(",");
+			  			String[] arrRoutesId = roudesId.split(",");
+			  			String[] arrColorsId = colorsId.split(",");
+			  		
+			  			Map<String, ArrayList<GeoPoint>> map_geoPoints = new HashMap<String, ArrayList<GeoPoint>>();
+			  		
+  		      			try {
+  		      				
+  		      				BufferedReader serviceFileBuffer = new BufferedReader(new FileReader(filesMaps.get(kStopTimesFileName)));
+  		      				
+  		      		  		serviceFileBuffer.readLine();
+  		      		  		
+  		      				while(serviceFileBuffer.ready())
+  		      				{
+  		      					//trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign,pickup_type,drop_off_type,shape_dist_traveled
+  		      					String serviceLine = serviceFileBuffer.readLine();
+  		      					
+  		      					if (serviceLine == null)
+  		      					{
+  		      						break;
+  		      					}
+  		      					
+  		      					String[] serviceData = serviceLine.split(",");
+  		      					
+	  		      				for(int t = 0; t < arrTripsId.length; t++)
+	  					  		{
+	  					  			if (arrTripsId[t].length() != 0)
+	  					  			{
+  		      					
+		  		      					if (serviceData[0].compareTo(arrTripsId[t]) == 0)
+		  		      					{
+		  		      						String stop_id = serviceData[3];
+		  		      						
+		  		      						/*
+		  		      						<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+		  		      						<Stop stop_code="174068" stop_desc="E 9400 S" stop_id="13697" stop_lat="40.580351" stop_lon="-111.829475"
+		  		      						 */
+		  		      						
+		  		      						File externalCacheDir = getExternalCacheDir();
+		  		      						File stopFile = new File(new File(externalCacheDir, "stops_data"), String.format("%s", stop_id));
+		  		      						
+		  		      						try {
+		  		      							DocumentBuilderFactory xmlFactory = DocumentBuilderFactory.newInstance();
+		  		      							DocumentBuilder xmlBuilder;
+		  		      							xmlBuilder = xmlFactory.newDocumentBuilder();
+		  		      							Document document;
+		  		      							document = xmlBuilder.parse(stopFile);
+		  		      							Element elRoot = document.getDocumentElement();
+		  		      							
+		  		      							String stop_lat = elRoot.getAttribute("stop_lat");
+		  		      							String stop_lon = elRoot.getAttribute("stop_lon");
+		  		      							
+		  		      							GeoPoint point = new GeoPoint(Double.parseDouble(stop_lat), Double.parseDouble(stop_lon));
+		  		      							
+		  		      							if (map_geoPoints.containsKey(arrTripsId[t]) == false)
+		  		      							{
+		  		      								map_geoPoints.put(arrTripsId[t],  new ArrayList<GeoPoint>());
+		  		      							}
+		  		      							
+		  		      							map_geoPoints.get(arrTripsId[t]).add(point);
+		  		      						}
+		  		      						catch(Exception ex)
+		  		      						{
+		  		      							Log.v("MainActivity", "read CalendarFileName");
+		  		      						}
+		  		      					}
+	  					  			}
+	  					  		}
+  		      				}
+  		      				
+  		      				serviceFileBuffer.close();
+  		      	            
+  		      	        } catch (Exception e) {
+  		      	            //return e.toString();
+  		      	        	Log.v("MainActivity", "Error" + e);
+  		      	        } 
+  		      			finally 
+  		      	        {
+  		      				
+  		      	        }
+		  		     
+	  		      		for(int t = 0; t < arrTripsId.length; t++)
 				  		{
-				  			sel_tripId = arrTripsId[t]; 
-				  			sel_roudeId = arrRoutesId[t]; 
-				  			
-				  			if (sel_tripId.length() != 0)
-				  			{
-				  				colorChanged("", Integer.parseInt(arrColorsId[t]));
-				  			}
-				  		}
+	  		      			int color = Integer.parseInt(arrColorsId[t]);
+	  		      			TripOverlayItem item = new TripOverlayItem(arrTripsId[t],  
+	  		      														arrRoutesId[t], 
+	  		      													map_geoPoints.get(arrTripsId[t]), 
+	  		      													color, activity);
+		  					
+		  					m_listOverlayTrips.getOverlayItems().add(item);
+			  			}
 			  		}
-			  		
-			  		mapView.redraw();
-			  		
-			  		
 
 			    runOnUiThread(new Runnable() {
 			      @Override
 			      public void run()
 			      {
-			    	  progressDialog.dismiss();
+				  	mapView.redraw();
 			    	  
-			    	  AlertDialog.Builder builder = new AlertDialog.Builder(activity);
-			    	  builder.setMessage(R.string.tap_on_station).setTitle(R.string.app_name).setPositiveButton("Ok", null);
-			    	  AlertDialog dialog = builder.create();
-			    	
-			    	  dialog.show();
+					progressDialog.dismiss();
+					  
+					AlertDialog.Builder builder = new AlertDialog.Builder(activity);
+					builder.setMessage(R.string.tap_on_station).setTitle(R.string.app_name).setPositiveButton("Ok", null);
+					AlertDialog dialog = builder.create();
+					
+					dialog.show();
 			      }
 			    });
 			  }
@@ -640,21 +722,53 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 	        case R.id.action_exit:
 	        {
 	        	 finish();
+	        	 return true;
 	        }
-	        return true;
 	        
 	        case R.id.action_check_data:
 	        {
 	        	nRequestedOrientation = getRequestedOrientation();
 	        	setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_NOSENSOR);
 	        	checkForData();
+	        	return true;
 	        }
-	        return true;
+	        
+	        case R.id. Clear_trips:
+	        {
+	        	SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
+	        	SharedPreferences.Editor editor = settings.edit();
+	      	  
+	      	   	editor.remove("tripsId");
+	      	   	editor.remove("roudesId");
+	      	   	editor.remove("colorsId");
+	      	   
+	        	m_listOverlayTrips.getOverlayItems().clear();
+	        	mapView.redraw();
+	        	return true;
+	        }
 	        
 	        case R.id.action_about:
 	        {
 	        	AlertDialog.Builder builder = new AlertDialog.Builder(activity);
-		    	builder.setMessage(R.string.about_message).setTitle(R.string.about).setPositiveButton("Ok", null);
+		    	
+	        	String message = getResources().getString(R.string.about_message);
+	        	SharedPreferences sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this);
+	    		
+	        	if (sharedPrefs.contains("data_date"))
+	        	{
+	        		String temp = sharedPrefs.getString("data_date", getResources().getString(R.string.data_date));
+	        		
+	        		if (temp.contains(".") == true)
+	        		{
+	        			message = message + temp.split(".")[0];
+	        		}
+	        		else
+	        		{
+	        			message = message + "\nTimatable data:" + temp.replace("_", " ");
+	        		}
+	        	}
+	        	
+	        	builder.setMessage(message).setTitle(R.string.about).setPositiveButton("Ok", null);
 		    	AlertDialog dialog = builder.create();
 		    	
 		    	dialog.show();
@@ -725,28 +839,20 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 		
 		m_listOverlayCurrentPosition = new ListOverlay();
 		
-		//if (settings.contains("current_position_latitude") &&
-		//	settings.contains("current_position_longitude"))
-		//{
-			GeoPoint geoPoint = null;
-			String currentLatitude = settings.getString("current_position_latitude", "");
-			String currentLongitude = settings.getString("current_position_longitude", "");
-			
-			if (!currentLatitude.isEmpty() &&
-				!currentLongitude.isEmpty())
-			{
-				geoPoint = new GeoPoint(Float.parseFloat(currentLatitude), Float.parseFloat(currentLongitude));
-			}
-			
-			CurrentPositionItem item = new CurrentPositionItem(geoPoint, activity);
-			m_listOverlayCurrentPosition.getOverlayItems().add(item);
-		//}
+		GeoPoint geoPoint = null;
+		String currentLatitude = settings.getString("current_position_latitude", "");
+		String currentLongitude = settings.getString("current_position_longitude", "");
+		
+		if (!currentLatitude.isEmpty() &&
+			!currentLongitude.isEmpty())
+		{
+			geoPoint = new GeoPoint(Float.parseFloat(currentLatitude), Float.parseFloat(currentLongitude));
+		}
+		
+		CurrentPositionItem item = new CurrentPositionItem(geoPoint, activity);
+		m_listOverlayCurrentPosition.getOverlayItems().add(item);
 		
 		mapView.getOverlays().add(m_listOverlayCurrentPosition);
-
-		//MapScaleBar mapScaleBar = this.mapView.getMapScaleBar();
-		//mapScaleBar.setText(TextField.KILOMETER, getString(R.string.unit_symbol_kilometer));
-		//mapScaleBar.setText(TextField.METER, getString(R.string.unit_symbol_meter));
 	}
 	
 	public Bitmap getStopBitmap(int id)
@@ -880,9 +986,10 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 	public void colorChanged(String key, int color)
 	{
 		progressDialog = new ProgressDialog(activity);
-		progressDialog.setTitle(getResources().getString(R.string.loading_data));
+		progressDialog.setTitle(getResources().getString(R.string.loading_trips_data));
 		progressDialog.setMessage(getResources().getString(R.string.please_wait));
 		progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+		progressDialog.setCanceledOnTouchOutside(false);
 		progressDialog.show();
 			
 		SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
@@ -906,6 +1013,9 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 	
 	public void getTripOverlay(ArrayList<String> tripsId, ArrayList<String> roudesId)
 	{
+		tripsId.clear();
+		roudesId.clear();
+		
 		List<OverlayItem> list = m_listOverlayTrips.getOverlayItems();
 		
 		for(int ii = 0; ii < list.size(); ii++)
@@ -913,6 +1023,21 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 			tripsId.add(((TripOverlayItem)list.get(ii)).tripID);
 			roudesId.add(((TripOverlayItem)list.get(ii)).routeID);
 		}
+	}
+	
+	public String getCurrentTripOverlay(String roudesId)
+	{
+		List<OverlayItem> list = m_listOverlayTrips.getOverlayItems();
+		
+		for(int ii = 0; ii < list.size(); ii++)
+		{
+			if (((TripOverlayItem)list.get(ii)).routeID.compareTo(roudesId) == 0)
+			{
+				return ((TripOverlayItem)list.get(ii)).tripID;
+			}
+		}
+		
+		return "";
 	}
 	
 	public void onLocationChanged(Location loc)
