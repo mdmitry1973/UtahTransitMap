@@ -488,96 +488,99 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 			  			String roudesId = settings.getString("roudesId", "");
 			  			String colorsId = settings.getString("colorsId", "");
 			  		
-			  			String[] arrTripsId = tripsId.split(",");
-			  			String[] arrRoutesId = roudesId.split(",");
-			  			String[] arrColorsId = colorsId.split(",");
-			  		
-			  			Map<String, ArrayList<GeoPoint>> map_geoPoints = new HashMap<String, ArrayList<GeoPoint>>();
-			  		
-  		      			try {
-  		      				
-  		      				BufferedReader serviceFileBuffer = new BufferedReader(new FileReader(filesMaps.get(kStopTimesFileName)));
-  		      				
-  		      		  		serviceFileBuffer.readLine();
-  		      		  		
-  		      				while(serviceFileBuffer.ready())
-  		      				{
-  		      					//trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign,pickup_type,drop_off_type,shape_dist_traveled
-  		      					String serviceLine = serviceFileBuffer.readLine();
-  		      					
-  		      					if (serviceLine == null)
-  		      					{
-  		      						break;
-  		      					}
-  		      					
-  		      					String[] serviceData = serviceLine.split(",");
-  		      					
-	  		      				for(int t = 0; t < arrTripsId.length; t++)
-	  					  		{
-	  					  			if (arrTripsId[t].length() != 0)
-	  					  			{
-  		      					
-		  		      					if (serviceData[0].compareTo(arrTripsId[t]) == 0)
-		  		      					{
-		  		      						String stop_id = serviceData[3];
-		  		      						
-		  		      						/*
-		  		      						<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-		  		      						<Stop stop_code="174068" stop_desc="E 9400 S" stop_id="13697" stop_lat="40.580351" stop_lon="-111.829475"
-		  		      						 */
-		  		      						
-		  		      						File externalCacheDir = getExternalCacheDir();
-		  		      						File stopFile = new File(new File(externalCacheDir, "stops_data"), String.format("%s", stop_id));
-		  		      						
-		  		      						try {
-		  		      							DocumentBuilderFactory xmlFactory = DocumentBuilderFactory.newInstance();
-		  		      							DocumentBuilder xmlBuilder;
-		  		      							xmlBuilder = xmlFactory.newDocumentBuilder();
-		  		      							Document document;
-		  		      							document = xmlBuilder.parse(stopFile);
-		  		      							Element elRoot = document.getDocumentElement();
-		  		      							
-		  		      							String stop_lat = elRoot.getAttribute("stop_lat");
-		  		      							String stop_lon = elRoot.getAttribute("stop_lon");
-		  		      							
-		  		      							GeoPoint point = new GeoPoint(Double.parseDouble(stop_lat), Double.parseDouble(stop_lon));
-		  		      							
-		  		      							if (map_geoPoints.containsKey(arrTripsId[t]) == false)
-		  		      							{
-		  		      								map_geoPoints.put(arrTripsId[t],  new ArrayList<GeoPoint>());
-		  		      							}
-		  		      							
-		  		      							map_geoPoints.get(arrTripsId[t]).add(point);
-		  		      						}
-		  		      						catch(Exception ex)
-		  		      						{
-		  		      							Log.v("MainActivity", "read CalendarFileName");
-		  		      						}
-		  		      					}
-	  					  			}
-	  					  		}
-  		      				}
-  		      				
-  		      				serviceFileBuffer.close();
-  		      	            
-  		      	        } catch (Exception e) {
-  		      	            //return e.toString();
-  		      	        	Log.v("MainActivity", "Error" + e);
-  		      	        } 
-  		      			finally 
-  		      	        {
-  		      				
-  		      	        }
-		  		     
-	  		      		for(int t = 0; t < arrTripsId.length; t++)
-				  		{
-	  		      			int color = Integer.parseInt(arrColorsId[t]);
-	  		      			TripOverlayItem item = new TripOverlayItem(arrTripsId[t],  
-	  		      														arrRoutesId[t], 
-	  		      													map_geoPoints.get(arrTripsId[t]), 
-	  		      													color, activity);
-		  					
-		  					m_listOverlayTrips.getOverlayItems().add(item);
+			  			if (tripsId.length() != 0)
+			  			{
+				  			String[] arrTripsId = tripsId.split(",");
+				  			String[] arrRoutesId = roudesId.split(",");
+				  			String[] arrColorsId = colorsId.split(",");
+				  		
+				  			Map<String, ArrayList<GeoPoint>> map_geoPoints = new HashMap<String, ArrayList<GeoPoint>>();
+				  		
+	  		      			try {
+	  		      				
+	  		      				BufferedReader serviceFileBuffer = new BufferedReader(new FileReader(filesMaps.get(kStopTimesFileName)));
+	  		      				
+	  		      		  		serviceFileBuffer.readLine();
+	  		      		  		
+	  		      				while(serviceFileBuffer.ready())
+	  		      				{
+	  		      					//trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign,pickup_type,drop_off_type,shape_dist_traveled
+	  		      					String serviceLine = serviceFileBuffer.readLine();
+	  		      					
+	  		      					if (serviceLine == null)
+	  		      					{
+	  		      						break;
+	  		      					}
+	  		      					
+	  		      					String[] serviceData = serviceLine.split(",");
+	  		      					
+		  		      				for(int t = 0; t < arrTripsId.length; t++)
+		  					  		{
+		  					  			if (arrTripsId[t].length() != 0)
+		  					  			{
+	  		      					
+			  		      					if (serviceData[0].compareTo(arrTripsId[t]) == 0)
+			  		      					{
+			  		      						String stop_id = serviceData[3];
+			  		      						
+			  		      						/*
+			  		      						<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+			  		      						<Stop stop_code="174068" stop_desc="E 9400 S" stop_id="13697" stop_lat="40.580351" stop_lon="-111.829475"
+			  		      						 */
+			  		      						
+			  		      						File externalCacheDir = getExternalCacheDir();
+			  		      						File stopFile = new File(new File(externalCacheDir, "stops_data"), String.format("%s", stop_id));
+			  		      						
+			  		      						try {
+			  		      							DocumentBuilderFactory xmlFactory = DocumentBuilderFactory.newInstance();
+			  		      							DocumentBuilder xmlBuilder;
+			  		      							xmlBuilder = xmlFactory.newDocumentBuilder();
+			  		      							Document document;
+			  		      							document = xmlBuilder.parse(stopFile);
+			  		      							Element elRoot = document.getDocumentElement();
+			  		      							
+			  		      							String stop_lat = elRoot.getAttribute("stop_lat");
+			  		      							String stop_lon = elRoot.getAttribute("stop_lon");
+			  		      							
+			  		      							GeoPoint point = new GeoPoint(Double.parseDouble(stop_lat), Double.parseDouble(stop_lon));
+			  		      							
+			  		      							if (map_geoPoints.containsKey(arrTripsId[t]) == false)
+			  		      							{
+			  		      								map_geoPoints.put(arrTripsId[t],  new ArrayList<GeoPoint>());
+			  		      							}
+			  		      							
+			  		      							map_geoPoints.get(arrTripsId[t]).add(point);
+			  		      						}
+			  		      						catch(Exception ex)
+			  		      						{
+			  		      							Log.v("MainActivity", "read CalendarFileName");
+			  		      						}
+			  		      					}
+		  					  			}
+		  					  		}
+	  		      				}
+	  		      				
+	  		      				serviceFileBuffer.close();
+	  		      	            
+	  		      	        } catch (Exception e) {
+	  		      	            //return e.toString();
+	  		      	        	Log.v("MainActivity", "Error" + e);
+	  		      	        } 
+	  		      			finally 
+	  		      	        {
+	  		      				
+	  		      	        }
+			  		     
+		  		      		for(int t = 0; t < arrTripsId.length; t++)
+					  		{
+		  		      			int color = Integer.parseInt(arrColorsId[t]);
+		  		      			TripOverlayItem item = new TripOverlayItem(arrTripsId[t],  
+		  		      														arrRoutesId[t], 
+		  		      													map_geoPoints.get(arrTripsId[t]), 
+		  		      													color, activity);
+			  					
+			  					m_listOverlayTrips.getOverlayItems().add(item);
+				  			}
 			  			}
 			  		}
 
@@ -607,7 +610,7 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 				Log.v("MainActivity", "OnTouchListener=" + event.toString());
 				
 				if (event.getAction() == MotionEvent.ACTION_UP && 
-					event.getEventTime() - event.getDownTime() > 500)
+					event.getEventTime() - event.getDownTime() > 300)
 				{
 					try{
 						
@@ -674,16 +677,19 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 	   
 	   List<OverlayItem> list = m_listOverlayTrips.getOverlayItems();
 		
-	   for(int ii = 0; ii < list.size(); ii++)
+	   if (list.size() != 0)
 	   {
-		   tripsId = tripsId + ((TripOverlayItem)list.get(ii)).tripID + ",";
-		   roudesId = roudesId + ((TripOverlayItem)list.get(ii)).routeID + ",";
-		   colorsId = colorsId + ((TripOverlayItem)list.get(ii)).color + ",";
+		   for(int ii = 0; ii < list.size(); ii++)
+		   {
+			   tripsId = tripsId + ((TripOverlayItem)list.get(ii)).tripID + ",";
+			   roudesId = roudesId + ((TripOverlayItem)list.get(ii)).routeID + ",";
+			   colorsId = colorsId + ((TripOverlayItem)list.get(ii)).color + ",";
+		   }
+			
+		   editor.putString("tripsId", tripsId);
+		   editor.putString("roudesId", roudesId);
+		   editor.putString("colorsId", colorsId);
 	   }
-		
-	   editor.putString("tripsId", tripsId);
-	   editor.putString("roudesId", roudesId);
-	   editor.putString("colorsId", colorsId);
 	   
 	   editor.commit();
     }
