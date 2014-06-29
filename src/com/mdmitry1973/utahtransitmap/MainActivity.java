@@ -332,7 +332,7 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 								} 
 		  					}
 		  					
-			  				if (needUpdate)
+			  				if (needUpdate && dataZipFile.exists())
 			  				{
 			  					handler.sendEmptyMessage(k_event_unzip);
 			  					unZipData(dataZipFile, externalCacheDir);
@@ -764,14 +764,8 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 	        	{
 	        		String temp = sharedPrefs.getString("data_date", getResources().getString(R.string.data_date));
 	        		
-	        		if (temp.contains(".") == true)
-	        		{
-	        			message = message + temp.split(".")[0];
-	        		}
-	        		else
-	        		{
-	        			message = message + "\nTimatable data:" + temp.replace("_", " ");
-	        		}
+	        		temp = temp.replace(".zip", "");
+	        		message = message + "\nTimatable data:" + temp.replace("_", " ");
 	        	}
 	        	
 	        	builder.setMessage(message).setTitle(R.string.about).setPositiveButton("Ok", null);
