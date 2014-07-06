@@ -31,12 +31,12 @@
     <string name="settings_bg_color_confirm">Tap here to confirm</string>
     <string name="settings_default_color_confirm">Default color</string>
     <string name="settings_bg_color_dialog">Pick a color</string>
-    <string name="tap_on_station">Tap on a stop for see routes and time table.</string>
+    <string name="tap_on_station">Tap on a stop for see routes and timetable.</string>
     <string name="pref_MetricTitle">Select a unit of measurement.</string>
     <string name="pref_Metric_default">1</string>
-    <string name="check_dat">Check for update time table</string>
-    <string name="up_to_date">Your time table is up to date</string>
-    <string name="new_time_table">New time table exist. If you want update time table press OK. It can take about 40 minutes.</string>
+    <string name="check_dat">Check for update timetable</string>
+    <string name="up_to_date">Your timetable is up to date</string>
+    <string name="new_time_table">New timetable exist. If you want update timetable press OK. It can take about 40 minutes.</string>
     <string name="finished_update_data">Finished update data.</string>
 	<string name="prepare_data">Preparing data.</string>
 	<string name="finale_prepare_data">Final preparing data.</string>

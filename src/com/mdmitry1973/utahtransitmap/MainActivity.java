@@ -29,11 +29,13 @@ import android.view.View;
 import android.view.View.OnTouchListener;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -134,9 +136,9 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 	
 	public final static int k_event_unzip 			= 111;
 	public final static int k_event_loading_data 	= 222;
-	public final static int k_event_unzip2 		= 333;
+	public final static int k_event_unzip2 			= 333;
 	public final static int k_event_prepare_data 	= 444;
-	public final static int k_event_prepare_data_2 = 666;
+	public final static int k_event_prepare_data_2 	= 666;
 	public final static int k_event_download_data 	= 555;
 	
 	public static String sel_tripId = ""; 
@@ -230,6 +232,14 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
         	}
         }
     };
+    
+    public void DeleteRecursive(File fileOrDirectory) {
+	    if (fileOrDirectory.isDirectory())
+	        for (File child : fileOrDirectory.listFiles())
+	            DeleteRecursive(child);
+
+	    fileOrDirectory.delete();
+	}
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -298,8 +308,13 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 			  @Override
 			  public void run()
 			  {
-				  	//if (!filesMaps.get(kMapFileName).exists())
+				  	File externalCacheDir = getExternalCacheDir();
+	  				File tripsDir = new File(externalCacheDir, "TripStore");
+				  
+	  				//if (!filesMaps.get(kMapFileName).exists())
 			  		{
+			  			
+			  			
 			  			File externalStorageDirectory = Environment.getExternalStorageDirectory();
 			  			String packageName = getApplicationContext().getPackageName();
 			  			File storageLocation = new File(externalStorageDirectory, "/Android/obb/" + packageName);
@@ -334,6 +349,11 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 		  					
 			  				if (needUpdate && dataZipFile.exists())
 			  				{
+			  					if (tripsDir.exists())
+			  					{
+			  						DeleteRecursive(tripsDir);
+			  					}
+			  					
 			  					handler.sendEmptyMessage(k_event_unzip);
 			  					unZipData(dataZipFile, externalCacheDir);
 			  					
@@ -490,87 +510,133 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 			  		
 			  			if (tripsId.length() != 0)
 			  			{
-				  			String[] arrTripsId = tripsId.split(",");
+			  				String[] arrTripsId = tripsId.split(",");
 				  			String[] arrRoutesId = roudesId.split(",");
 				  			String[] arrColorsId = colorsId.split(",");
-				  		
 				  			Map<String, ArrayList<GeoPoint>> map_geoPoints = new HashMap<String, ArrayList<GeoPoint>>();
-				  		
-	  		      			try {
-	  		      				
-	  		      				BufferedReader serviceFileBuffer = new BufferedReader(new FileReader(filesMaps.get(kStopTimesFileName)));
-	  		      				
-	  		      		  		serviceFileBuffer.readLine();
-	  		      		  		
-	  		      				while(serviceFileBuffer.ready())
-	  		      				{
-	  		      					//trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign,pickup_type,drop_off_type,shape_dist_traveled
-	  		      					String serviceLine = serviceFileBuffer.readLine();
-	  		      					
-	  		      					if (serviceLine == null)
-	  		      					{
-	  		      						break;
-	  		      					}
-	  		      					
-	  		      					String[] serviceData = serviceLine.split(",");
-	  		      					
-		  		      				for(int t = 0; t < arrTripsId.length; t++)
-		  					  		{
-		  					  			if (arrTripsId[t].length() != 0)
-		  					  			{
-	  		      					
-			  		      					if (serviceData[0].compareTo(arrTripsId[t]) == 0)
-			  		      					{
-			  		      						String stop_id = serviceData[3];
-			  		      						
-			  		      						/*
-			  		      						<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-			  		      						<Stop stop_code="174068" stop_desc="E 9400 S" stop_id="13697" stop_lat="40.580351" stop_lon="-111.829475"
-			  		      						 */
-			  		      						
-			  		      						File externalCacheDir = getExternalCacheDir();
-			  		      						File stopFile = new File(new File(externalCacheDir, "stops_data"), String.format("%s", stop_id));
-			  		      						
-			  		      						try {
-			  		      							DocumentBuilderFactory xmlFactory = DocumentBuilderFactory.newInstance();
-			  		      							DocumentBuilder xmlBuilder;
-			  		      							xmlBuilder = xmlFactory.newDocumentBuilder();
-			  		      							Document document;
-			  		      							document = xmlBuilder.parse(stopFile);
-			  		      							Element elRoot = document.getDocumentElement();
-			  		      							
-			  		      							String stop_lat = elRoot.getAttribute("stop_lat");
-			  		      							String stop_lon = elRoot.getAttribute("stop_lon");
-			  		      							
-			  		      							GeoPoint point = new GeoPoint(Double.parseDouble(stop_lat), Double.parseDouble(stop_lon));
-			  		      							
-			  		      							if (map_geoPoints.containsKey(arrTripsId[t]) == false)
-			  		      							{
-			  		      								map_geoPoints.put(arrTripsId[t],  new ArrayList<GeoPoint>());
-			  		      							}
-			  		      							
-			  		      							map_geoPoints.get(arrTripsId[t]).add(point);
-			  		      						}
-			  		      						catch(Exception ex)
-			  		      						{
-			  		      							Log.v("MainActivity", "read CalendarFileName");
-			  		      						}
-			  		      					}
-		  					  			}
-		  					  		}
-	  		      				}
-	  		      				
-	  		      				serviceFileBuffer.close();
-	  		      	            
-	  		      	        } catch (Exception e) {
-	  		      	            //return e.toString();
-	  		      	        	Log.v("MainActivity", "Error" + e);
-	  		      	        } 
-	  		      			finally 
-	  		      	        {
-	  		      				
-	  		      	        }
-			  		     
+					  		
+				  			if (tripsDir.exists())
+			  				{
+				  				for(int t = 0; t < arrTripsId.length; t++)
+						  		{
+			  		      			File tripFile = new File(tripsDir, arrTripsId[t]);
+			  		      			
+			  		      			if (tripFile.exists())
+			  		      			{
+				  		      			try {
+				  		      				
+				  		      				ArrayList<GeoPoint> points = new ArrayList<GeoPoint>();
+				  		      				BufferedReader tripFileBuffer = new BufferedReader(new FileReader(tripFile));
+				  		      				
+				  		      				String header = tripFileBuffer.readLine();
+				  		      		  		
+				  		      				while(tripFileBuffer.ready())
+				  		      				{
+				  		      					//latitude,longitude
+				  		      					String serviceLine = tripFileBuffer.readLine();
+				  		      					
+				  		      					if (serviceLine == null)
+				  		      					{
+				  		      						break;
+				  		      					}
+				  		      					String arrPoint[] = serviceLine.split(",");
+				  		      					GeoPoint point = new GeoPoint(Double.parseDouble(arrPoint[0]), Double.parseDouble(arrPoint[1]));
+	  		      							
+				  		      					points.add(point);
+				  		      				}
+				  		      				
+				  		      				tripFileBuffer.close();
+				  		      				
+				  		      				map_geoPoints.put(arrTripsId[t],  points);
+				  		      	            
+				  		      	        } catch (Exception e) {
+				  		      	            //return e.toString();
+				  		      	        	Log.v("MainActivity", "Error" + e);
+				  		      	        } 
+				  		      			finally 
+				  		      	        {
+				  		      				
+				  		      	        }
+			  		      			}
+					  			}
+			  				}
+				  			else
+				  			{
+		  		      			try {
+		  		      				
+		  		      				BufferedReader serviceFileBuffer = new BufferedReader(new FileReader(filesMaps.get(kStopTimesFileName)));
+		  		      				
+		  		      		  		serviceFileBuffer.readLine();
+		  		      		  		
+		  		      				while(serviceFileBuffer.ready())
+		  		      				{
+		  		      					//trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign,pickup_type,drop_off_type,shape_dist_traveled
+		  		      					String serviceLine = serviceFileBuffer.readLine();
+		  		      					
+		  		      					if (serviceLine == null)
+		  		      					{
+		  		      						break;
+		  		      					}
+		  		      					
+		  		      					String[] serviceData = serviceLine.split(",");
+		  		      					
+			  		      				for(int t = 0; t < arrTripsId.length; t++)
+			  					  		{
+			  					  			if (arrTripsId[t].length() != 0)
+			  					  			{
+		  		      					
+				  		      					if (serviceData[0].compareTo(arrTripsId[t]) == 0)
+				  		      					{
+				  		      						String stop_id = serviceData[3];
+				  		      						
+				  		      						/*
+				  		      						<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+				  		      						<Stop stop_code="174068" stop_desc="E 9400 S" stop_id="13697" stop_lat="40.580351" stop_lon="-111.829475"
+				  		      						 */
+				  		      						
+				  		      						File stopFile = new File(new File(externalCacheDir, "stops_data"), String.format("%s", stop_id));
+				  		      						
+				  		      						try {
+				  		      							DocumentBuilderFactory xmlFactory = DocumentBuilderFactory.newInstance();
+				  		      							DocumentBuilder xmlBuilder;
+				  		      							xmlBuilder = xmlFactory.newDocumentBuilder();
+				  		      							Document document;
+				  		      							document = xmlBuilder.parse(stopFile);
+				  		      							Element elRoot = document.getDocumentElement();
+				  		      							
+				  		      							String stop_lat = elRoot.getAttribute("stop_lat");
+				  		      							String stop_lon = elRoot.getAttribute("stop_lon");
+				  		      							
+				  		      							GeoPoint point = new GeoPoint(Double.parseDouble(stop_lat), Double.parseDouble(stop_lon));
+				  		      							
+				  		      							if (map_geoPoints.containsKey(arrTripsId[t]) == false)
+				  		      							{
+				  		      								map_geoPoints.put(arrTripsId[t],  new ArrayList<GeoPoint>());
+				  		      							}
+				  		      							
+				  		      							map_geoPoints.get(arrTripsId[t]).add(point);
+				  		      						}
+				  		      						catch(Exception ex)
+				  		      						{
+				  		      							Log.v("MainActivity", "read CalendarFileName");
+				  		      						}
+				  		      					}
+			  					  			}
+			  					  		}
+		  		      				}
+		  		      				
+		  		      				serviceFileBuffer.close();
+		  		      	            
+		  		      	        } catch (Exception e) {
+		  		      	            //return e.toString();
+		  		      	        	Log.v("MainActivity", "Error" + e);
+		  		      	        } 
+		  		      			finally 
+		  		      	        {
+		  		      				
+		  		      	        }
+				  			}
+				  			
 		  		      		for(int t = 0; t < arrTripsId.length; t++)
 					  		{
 		  		      			int color = Integer.parseInt(arrColorsId[t]);
@@ -671,6 +737,14 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 	   editor.putString("current_latitude", String.valueOf(currentPosition.getCenter().latitude));
 	   editor.putString("current_longitude", String.valueOf(currentPosition.getCenter().longitude));
 	   
+	   File externalCacheDir = getExternalCacheDir();
+	   File tripsDir = new File(externalCacheDir, "TripStore");
+	   
+	   if (!tripsDir.exists())
+	   {
+		   tripsDir.mkdir();
+	   }
+	   
 	   String tripsId = "";
 	   String roudesId = "";
 	   String colorsId = "";
@@ -684,6 +758,30 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 			   tripsId = tripsId + ((TripOverlayItem)list.get(ii)).tripID + ",";
 			   roudesId = roudesId + ((TripOverlayItem)list.get(ii)).routeID + ",";
 			   colorsId = colorsId + ((TripOverlayItem)list.get(ii)).color + ",";
+			   
+			   String tripId =  ((TripOverlayItem)list.get(ii)).tripID;
+			   String roudeId = ((TripOverlayItem)list.get(ii)).routeID;
+			   int colorId = ((TripOverlayItem)list.get(ii)).color;
+			   ArrayList<GeoPoint> pointes = ((TripOverlayItem)list.get(ii)).geoPoints;
+			   File tripFile = new File(tripsDir, tripId);
+			   
+			   try {
+				   BufferedWriter br = new BufferedWriter(new FileWriter(tripFile));
+				
+					br.write(tripId + "," + roudeId + "," + colorId);
+					br.newLine();
+				
+					for(int n = 0; n < pointes.size(); n++)
+				    {
+						br.write("" + pointes.get(n).latitude + "," + pointes.get(n).longitude);
+						br.newLine();
+				    }
+					
+					br.close();
+			   } catch (IOException e) {
+				   // TODO Auto-generated catch block
+				   e.printStackTrace();
+			   }
 		   }
 			
 		   editor.putString("tripsId", tripsId);
@@ -747,6 +845,8 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 	      	   	editor.remove("tripsId");
 	      	   	editor.remove("roudesId");
 	      	   	editor.remove("colorsId");
+	      	   	
+	      	   	editor.commit();
 	      	   
 	        	m_listOverlayTrips.getOverlayItems().clear();
 	        	mapView.redraw();
@@ -782,8 +882,13 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 
 	            mlocListener = new MyLocationListener();
 	            mlocListener.setMainActivity(this);
-	            mlocManager.requestLocationUpdates( LocationManager.GPS_PROVIDER, 0, 0, mlocListener);
-	        	
+	            
+	            List<String> providers =  mlocManager.getAllProviders();
+            	
+            	for(int i = 0; i < providers.size(); i++)
+            	{
+            		mlocManager.requestLocationUpdates(providers.get(i), 0, 0, mlocListener);
+            	}
 	        }
 	        return true;
 	        
@@ -891,63 +996,94 @@ public class MainActivity extends MapActivity implements ColorPickerDialog.OnCol
 	      			try {
 	      				
 	      				geoPoints = new ArrayList<GeoPoint>();
-	      				BufferedReader serviceFileBuffer = new BufferedReader(new FileReader(filesMaps.get(kStopTimesFileName)));
 	      				
-	      		  		serviceFileBuffer.readLine();
-	      		  		
-	      		  		Boolean foundTrip = false;
+	      				File externalCacheDir = getExternalCacheDir();
+	      				File tripsDir = new File(externalCacheDir, "TripStore");
+	      				File tripFile = new File(tripsDir, sel_tripId);
 	      				
-	      				while(serviceFileBuffer.ready())
+	      				if (tripFile.exists())
 	      				{
-	      					//trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign,pickup_type,drop_off_type,shape_dist_traveled
-	      					String serviceLine = serviceFileBuffer.readLine();
-	      					String[] serviceData = serviceLine.split(",");
-	      					
-	      					if (serviceData[0].compareTo(sel_tripId) == 0)
-	      					{
-	      						foundTrip = true;
-	      						
-	      						String stop_id = serviceData[3];
-	      						
-	      						/*
-	      						<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-	      						<Stop stop_code="174068" stop_desc="E 9400 S" stop_id="13697" stop_lat="40.580351" stop_lon="-111.829475"
-	      						 */
-	      						
-	      						File externalCacheDir = getExternalCacheDir();
-	      						File stopFile = new File(new File(externalCacheDir, "stops_data"), String.format("%s", stop_id));
-	      						
-	      						try {
-	      							DocumentBuilderFactory xmlFactory = DocumentBuilderFactory.newInstance();
-	      							DocumentBuilder xmlBuilder;
-	      							xmlBuilder = xmlFactory.newDocumentBuilder();
-	      							Document document;
-	      							document = xmlBuilder.parse(stopFile);
-	      							Element elRoot = document.getDocumentElement();
-	      							
-	      							String stop_lat = elRoot.getAttribute("stop_lat");
-	      							String stop_lon = elRoot.getAttribute("stop_lon");
-	      							
-	      							GeoPoint point = new GeoPoint(Double.parseDouble(stop_lat), Double.parseDouble(stop_lon));
-	      							
-	      							geoPoints.add(point);
-	      							
-	      						}
-	      						catch(Exception ex)
-	      						{
-	      							Log.v("MainActivity", "read CalendarFileName");
-	      						}
-	      					}
-	      					else
-	      					{
-	      						if (foundTrip == true)
-	      						{
-	      							break;
-	      						}
-	      					}
+	      					BufferedReader tripFileBuffer = new BufferedReader(new FileReader(tripFile));
+  		      				
+  		      				String header = tripFileBuffer.readLine();
+  		      		  		
+  		      				while(tripFileBuffer.ready())
+  		      				{
+  		      					//latitude,longitude
+  		      					String serviceLine = tripFileBuffer.readLine();
+  		      					
+  		      					if (serviceLine == null)
+  		      					{
+  		      						break;
+  		      					}
+  		      					String arrPoint[] = serviceLine.split(",");
+  		      					GeoPoint point = new GeoPoint(Double.parseDouble(arrPoint[0]), Double.parseDouble(arrPoint[1]));
+    							
+  		      					geoPoints.add(point);
+  		      				}
+  		      				
+  		      				tripFileBuffer.close();
 	      				}
-	      				
-	      				serviceFileBuffer.close();
+	      				else
+	      				{
+		      				BufferedReader serviceFileBuffer = new BufferedReader(new FileReader(filesMaps.get(kStopTimesFileName)));
+		      				
+		      		  		serviceFileBuffer.readLine();
+		      		  		
+		      		  		Boolean foundTrip = false;
+		      				
+		      				while(serviceFileBuffer.ready())
+		      				{
+		      					//trip_id,arrival_time,departure_time,stop_id,stop_sequence,stop_headsign,pickup_type,drop_off_type,shape_dist_traveled
+		      					String serviceLine = serviceFileBuffer.readLine();
+		      					String[] serviceData = serviceLine.split(",");
+		      					
+		      					if (serviceData[0].compareTo(sel_tripId) == 0)
+		      					{
+		      						foundTrip = true;
+		      						
+		      						String stop_id = serviceData[3];
+		      						
+		      						/*
+		      						<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+		      						<Stop stop_code="174068" stop_desc="E 9400 S" stop_id="13697" stop_lat="40.580351" stop_lon="-111.829475"
+		      						 */
+		      						
+		      						//File externalCacheDir = getExternalCacheDir();
+		      						File stopFile = new File(new File(externalCacheDir, "stops_data"), String.format("%s", stop_id));
+		      						
+		      						try {
+		      							DocumentBuilderFactory xmlFactory = DocumentBuilderFactory.newInstance();
+		      							DocumentBuilder xmlBuilder;
+		      							xmlBuilder = xmlFactory.newDocumentBuilder();
+		      							Document document;
+		      							document = xmlBuilder.parse(stopFile);
+		      							Element elRoot = document.getDocumentElement();
+		      							
+		      							String stop_lat = elRoot.getAttribute("stop_lat");
+		      							String stop_lon = elRoot.getAttribute("stop_lon");
+		      							
+		      							GeoPoint point = new GeoPoint(Double.parseDouble(stop_lat), Double.parseDouble(stop_lon));
+		      							
+		      							geoPoints.add(point);
+		      							
+		      						}
+		      						catch(Exception ex)
+		      						{
+		      							Log.v("MainActivity", "read CalendarFileName");
+		      						}
+		      					}
+		      					else
+		      					{
+		      						if (foundTrip == true)
+		      						{
+		      							break;
+		      						}
+		      					}
+		      				}
+		      				
+		      				serviceFileBuffer.close();
+	      				}
 	      	            
 	      	        } catch (Exception e) {
 	      	            //return e.toString();

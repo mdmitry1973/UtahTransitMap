@@ -16,7 +16,7 @@ public class TripOverlayItem implements OverlayItem {
 	
 	public String tripID;
 	public String routeID;
-	private ArrayList<GeoPoint> geoPoints;
+	public ArrayList<GeoPoint> geoPoints;
 	public int color;
 	private	Paint paintLine;
 	
